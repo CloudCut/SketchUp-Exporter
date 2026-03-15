@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "Bash(*)",
+    "Read(*)",
+    "Write(*)",
+    "Edit(*)",
+    "allow": [
+      "Bash(cd:*)"
+    ]
+  }
+}

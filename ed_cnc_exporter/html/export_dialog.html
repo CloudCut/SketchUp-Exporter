@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>CNC Exporter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h2>CNC Export Options</h2>
+
+  <div class="section">
+    <h3>Detected Parts</h3>
+    <div id="partsList" class="parts-list"></div>
+  </div>
+
+  <div class="section">
+    <h3>Output Format</h3>
+    <label><input type="radio" name="format" value="svg" checked> SVG</label>
+    <label><input type="radio" name="format" value="json"> JSON</label>
+  </div>
+
+  <div class="section">
+    <h3>Output Units</h3>
+    <label><input type="radio" name="units" value="mm" id="unitMm"> Millimeters</label>
+    <label><input type="radio" name="units" value="in" id="unitIn"> Inches</label>
+  </div>
+
+  <div class="section">
+    <h3>Material Filter</h3>
+    <label class="toggle-all"><input type="checkbox" id="allMaterials" checked onchange="toggleAll('materials', this.checked)"> All</label>
+    <div id="materialFilters" class="filter-group"></div>
+  </div>
+
+  <div class="section">
+    <h3>Thickness Filter</h3>
+    <label class="toggle-all"><input type="checkbox" id="allThicknesses" checked onchange="toggleAll('thicknesses', this.checked)"> All</label>
+    <div id="thicknessFilters" class="filter-group"></div>
+  </div>
+
+  <div class="buttons">
+    <button id="exportBtn" onclick="doExport()">Export</button>
+    <button id="cancelBtn" onclick="doCancel()">Cancel</button>
+  </div>
+
+  <script src="dialog.js"></script>
+</body>
+</html>
