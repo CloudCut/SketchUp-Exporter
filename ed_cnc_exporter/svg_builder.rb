@@ -2,8 +2,8 @@ module EricDesign
   module CNCExporter
     module SvgBuilder
 
-      MARGIN_CM = 1.0   # 1cm margin
-      SPACING_CM = 1.0  # 1cm between parts
+      MARGIN_MM = 25.4   # 1 inch margin
+      SPACING_MM = 25.4  # 1 inch between parts
 
       # Build an SVG string from an array of ExportComponent objects.
       # unit is "mm" or "in".
@@ -21,6 +21,7 @@ module EricDesign
 
         lines = []
         lines << '<?xml version="1.0" encoding="UTF-8"?>'
+        lines << '<!-- CNC Exporter v4 - 1in spacing -->'
         lines << "<svg xmlns=\"http://www.w3.org/2000/svg\""
         lines << "     width=\"#{fmt(total_width, unit)}#{unit_label}\" height=\"#{fmt(total_height, unit)}#{unit_label}\""
         lines << "     viewBox=\"0 0 #{fmt(total_width, unit)} #{fmt(total_height, unit)}\">"
@@ -78,11 +79,11 @@ module EricDesign
       private
 
       def self.margin_in_unit(unit)
-        unit == "mm" ? 10.0 : 10.0 / 25.4  # 1cm in output unit
+        unit == "mm" ? MARGIN_MM : MARGIN_MM / 25.4
       end
 
       def self.spacing_in_unit(unit)
-        unit == "mm" ? 10.0 : 10.0 / 25.4
+        unit == "mm" ? SPACING_MM : SPACING_MM / 25.4
       end
 
       def self.compute_layout(components, unit, margin, spacing)

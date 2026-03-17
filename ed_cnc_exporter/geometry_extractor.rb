@@ -253,9 +253,16 @@ module EricDesign
               center_2d = project_point(curve.center, origin, u_axis, v_axis)
               radius = curve.radius
 
+              # Sample a midpoint on the actual arc to determine sweep direction
+              mid_edge = arc_edges[arc_edges.length / 2]
+              mid_pt_3d = Geom::Point3d.linear_combination(
+                0.5, mid_edge.start.position, 0.5, mid_edge.end.position
+              )
+              mid_2d = project_point(mid_pt_3d, origin, u_axis, v_axis)
+
+              subtended_angle = (curve.end_angle - curve.start_angle).abs
               clockwise, large_arc = compute_arc_flags(
-                start_2d, end_2d, center_2d,
-                curve.normal, u_axis, v_axis, reversed
+                start_2d, end_2d, mid_2d, subtended_angle
               )
 
               segments << ArcSeg.new(start_2d, end_2d, center_2d, radius, clockwise, large_arc)
@@ -280,32 +287,27 @@ module EricDesign
         ExportContour.new(segments, true, true)
       end
 
-      # Compute SVG arc sweep and large-arc flags.
-      def self.compute_arc_flags(start_2d, end_2d, center_2d, arc_normal_3d, u_axis, v_axis, reversed)
-        view_z = u_axis.cross(v_axis)
+      # Compute SVG arc sweep and large-arc flags using a 2D midpoint sample.
+      # mid_2d is an actual point on the arc, projected to 2D.
+      # subtended_angle is the arc's angle from ArcCurve (always positive).
+      def self.compute_arc_flags(start_2d, end_2d, mid_2d, subtended_angle)
+        # Cross product of (start→end) × (start→mid) determines which side
+        # of the chord the arc bulges toward.
+        dx_se = end_2d[0] - start_2d[0]
+        dy_se = end_2d[1] - start_2d[1]
+        dx_sm = mid_2d[0] - start_2d[0]
+        dy_sm = mid_2d[1] - start_2d[1]
 
-        dot_normal = arc_normal_3d.x * view_z.x +
-                     arc_normal_3d.y * view_z.y +
-                     arc_normal_3d.z * view_z.z
+        cross = dx_se * dy_sm - dy_se * dx_sm
 
-        arc_is_ccw = dot_normal > 0
-        arc_is_ccw = !arc_is_ccw if reversed
+        large_arc = subtended_angle > Math::PI
 
-        clockwise = arc_is_ccw
-
-        cs = [start_2d[0] - center_2d[0], start_2d[1] - center_2d[1]]
-        ce = [end_2d[0] - center_2d[0], end_2d[1] - center_2d[1]]
-        angle_start = Math.atan2(cs[1], cs[0])
-        angle_end = Math.atan2(ce[1], ce[0])
-
-        sweep = angle_end - angle_start
-        if arc_is_ccw
-          sweep += 2 * Math::PI if sweep <= 0
-        else
-          sweep -= 2 * Math::PI if sweep >= 0
-        end
-
-        large_arc = sweep.abs > Math::PI
+        # The cross product tells us which side of the chord the arc bows toward.
+        # For small arcs (<180°), the arc bows AWAY from center:
+        #   cross > 0 (bows right in Y-down) → center is left → CCW (sweep=0)
+        #   cross < 0 (bows left) → center is right → CW (sweep=1)
+        # For large arcs (>180°), the relationship inverts.
+        clockwise = large_arc ? (cross > 0) : (cross < 0)
 
         [clockwise, large_arc]
       end

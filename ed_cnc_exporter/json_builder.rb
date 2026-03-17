@@ -7,13 +7,14 @@ module EricDesign
       # Build a JSON string from an array of ExportComponent objects.
       # unit is "mm" or "in".
       def self.build_json(components, unit)
-        margin = unit == "mm" ? 10.0 : 10.0 / 25.4
-        spacing = unit == "mm" ? 10.0 : 10.0 / 25.4
+        margin = unit == "mm" ? 25.4 : 1.0
+        spacing = unit == "mm" ? 25.4 : 1.0
 
         # Layout: horizontal strip
         layouts = compute_layout(components, unit, margin, spacing)
 
         result = {
+          "exporterVersion" => "v4-1in-spacing",
           "units"      => Units.unit_label(unit),
           "width"      => round_val(layouts[:total_width], unit),
           "height"     => round_val(layouts[:total_height], unit),

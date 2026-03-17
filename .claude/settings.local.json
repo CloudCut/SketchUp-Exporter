@@ -1,11 +1,9 @@
 {
   "permissions": {
-    "Bash(*)",
-    "Read(*)",
-    "Write(*)",
-    "Edit(*)",
     "allow": [
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(chmod:*)",
+      "Bash(ruby:*)"
     ]
   }
 }
