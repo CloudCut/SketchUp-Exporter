@@ -3,7 +3,7 @@ module EricDesign
     module Updater
 
       # ── Configure these to match your GitHub repo ──
-      GITHUB_OWNER = "yourusername"
+      GITHUB_OWNER = "CloudCut"
       GITHUB_REPO  = "SketchUp-Exporter"
 
       # Don't check more than once per hour
