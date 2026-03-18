@@ -29,7 +29,7 @@ mkdir -p "$TMPDIR/ed_cnc_exporter/html"
 mkdir -p "$TMPDIR/ed_cnc_exporter/icons"
 
 for f in main.rb utils.rb geometry_extractor.rb path_converter.rb \
-         svg_builder.rb json_builder.rb dialog.rb; do
+         svg_builder.rb json_builder.rb dialog.rb updater.rb; do
   cp "$SCRIPT_DIR/ed_cnc_exporter/$f" "$TMPDIR/ed_cnc_exporter/"
 done
 

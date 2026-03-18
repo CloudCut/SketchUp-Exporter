@@ -19,6 +19,7 @@ module EricDesign
     Sketchup.require(File.join(dir, "svg_builder"))
     Sketchup.require(File.join(dir, "json_builder"))
     Sketchup.require(File.join(dir, "dialog"))
+    Sketchup.require(File.join(dir, "updater"))
 
     # Menu and toolbar setup
     unless @loaded
@@ -32,9 +33,16 @@ module EricDesign
       submenu = menu.add_submenu("CNC Exporter")
       submenu.add_item(cmd_export)
 
+      cmd_update = UI::Command.new("Check for Updates") { Updater.check_for_update(silent: false) }
+      cmd_update.tooltip = "Check for CNC Exporter updates on GitHub"
+      submenu.add_item(cmd_update)
+
       toolbar = UI::Toolbar.new("CNC Exporter")
       toolbar.add_item(cmd_export)
       toolbar.restore
+
+      # Check for updates in the background (silent — only prompts if update found)
+      Updater.check_on_startup
 
       @loaded = true
     end
