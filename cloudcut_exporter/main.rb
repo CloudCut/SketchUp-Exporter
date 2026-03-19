@@ -41,8 +41,8 @@ module CloudCut
       toolbar.add_item(cmd_export)
       toolbar.restore
 
-      # Check for updates in the background (silent — only prompts if update found)
-      Updater.check_on_startup
+      # Check for updates after SketchUp finishes loading
+      UI.start_timer(5, false) { Updater.check_on_startup }
 
       @loaded = true
     end
