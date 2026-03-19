@@ -300,14 +300,21 @@ module CloudCut
 
         cross = dx_se * dy_sm - dy_se * dx_sm
 
-        large_arc = subtended_angle > Math::PI
-
-        # The cross product tells us which side of the chord the arc bows toward.
-        # For small arcs (<180°), the arc bows AWAY from center:
-        #   cross > 0 (bows right in Y-down) → center is left → CCW (sweep=0)
-        #   cross < 0 (bows left) → center is right → CW (sweep=1)
-        # For large arcs (>180°), the relationship inverts.
-        clockwise = large_arc ? (cross > 0) : (cross < 0)
+        # For near-semicircular arcs (≈180°), the large-arc flag is ambiguous
+        # since both possible arcs are the same size. Floating point can push
+        # the angle slightly past π, flipping both flags and producing the
+        # wrong arc. Force large_arc=false so only sweep determines direction.
+        if (subtended_angle - Math::PI).abs < 0.01
+          large_arc = false
+          clockwise = cross < 0
+        else
+          large_arc = subtended_angle > Math::PI
+          # For small arcs (<180°), the arc bows AWAY from center:
+          #   cross > 0 (bows right in Y-down) → center is left → CCW (sweep=0)
+          #   cross < 0 (bows left) → center is right → CW (sweep=1)
+          # For large arcs (>180°), the relationship inverts.
+          clockwise = large_arc ? (cross > 0) : (cross < 0)
+        end
 
         [clockwise, large_arc]
       end
