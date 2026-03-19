@@ -1,5 +1,5 @@
-module EricDesign
-  module CNCExporter
+module CloudCut
+  module Exporter
 
     # Keep a reference to prevent garbage collection closing the dialog.
     @export_dialog = nil
@@ -68,7 +68,7 @@ module EricDesign
 
       dialog = UI::HtmlDialog.new(
         dialog_title: "CNC Exporter",
-        preferences_key: "EricDesign_CNCExporter",
+        preferences_key: "CloudCut_Exporter",
         width: 500,
         height: 600,
         resizable: true

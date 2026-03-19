@@ -1,5 +1,5 @@
-module EricDesign
-  module CNCExporter
+module CloudCut
+  module Exporter
     module Updater
 
       # ── Configure these to match your GitHub repo ──
@@ -9,7 +9,7 @@ module EricDesign
       # Don't check more than once per hour
       CHECK_INTERVAL_SECONDS = 3600
 
-      PREF_SECTION = "EricDesign_CNCExporter"
+      PREF_SECTION = "CloudCut_Exporter"
 
       def self.current_version
         EXTENSION.version
@@ -28,7 +28,7 @@ module EricDesign
 
         request = Sketchup::Http::Request.new(url, Sketchup::Http::GET)
         request.headers = { "Accept" => "application/vnd.github.v3+json",
-                            "User-Agent" => "SketchUp-CNCExporter/#{current_version}" }
+                            "User-Agent" => "CloudCut-Exporter/#{current_version}" }
 
         request.start do |_req, response|
           Sketchup.write_default(PREF_SECTION, "last_update_check", Time.now.to_i.to_s)
@@ -86,7 +86,7 @@ module EricDesign
       def self.download_and_install(url)
         request = Sketchup::Http::Request.new(url, Sketchup::Http::GET)
         request.headers = { "Accept" => "application/octet-stream",
-                            "User-Agent" => "SketchUp-CNCExporter/#{current_version}" }
+                            "User-Agent" => "CloudCut-Exporter/#{current_version}" }
 
         request.start do |_req, response|
           if response.status_code != 200
@@ -94,9 +94,9 @@ module EricDesign
             next
           end
 
-          tmp_dir  = File.join(Sketchup.temp_dir, "cnc_exporter_update")
+          tmp_dir  = File.join(Sketchup.temp_dir, "cloudcut_exporter_update")
           Dir.mkdir(tmp_dir) unless File.directory?(tmp_dir)
-          rbz_path = File.join(tmp_dir, "ed_cnc_exporter.rbz")
+          rbz_path = File.join(tmp_dir, "cloudcut_exporter.rbz")
 
           File.binwrite(rbz_path, response.body)
 

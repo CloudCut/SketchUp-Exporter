@@ -1,5 +1,5 @@
-module EricDesign
-  module CNCExporter
+module CloudCut
+  module Exporter
     module SvgBuilder
 
       MARGIN_MM = 25.4   # 1 inch margin

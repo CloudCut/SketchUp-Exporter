@@ -1,5 +1,5 @@
-module EricDesign
-  module CNCExporter
+module CloudCut
+  module Exporter
     module GeometryExtractor
 
       # Find all solid groups/components in the selection, recursively.

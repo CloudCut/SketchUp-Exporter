@@ -1,7 +1,7 @@
 require 'json'
 
-module EricDesign
-  module CNCExporter
+module CloudCut
+  module Exporter
     module JsonBuilder
 
       # Build a JSON string from an array of ExportComponent objects.

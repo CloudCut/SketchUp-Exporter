@@ -1,14 +1,14 @@
-# ed_cnc_exporter.rb — Loader file (extension registration ONLY)
+# cloudcut_exporter.rb — Loader file (extension registration ONLY)
 # This file must ONLY register the extension. All other code lives in
-# the ed_cnc_exporter/ support folder and is loaded on demand.
+# the cloudcut_exporter/ support folder and is loaded on demand.
 
-module EricDesign
-  module CNCExporter
+module CloudCut
+  module Exporter
     root = File.dirname(__FILE__).force_encoding('UTF-8')
-    loader = File.join(root, "ed_cnc_exporter", "main") # NO .rb extension!
+    loader = File.join(root, "cloudcut_exporter", "main") # NO .rb extension!
 
     EXTENSION = SketchupExtension.new("CNC Exporter", loader)
-    EXTENSION.creator     = "Eric Design"
+    EXTENSION.creator     = "CloudCut"
     EXTENSION.description = "Export selected solid groups and components " \
                             "as CNC-ready SVG and JSON files with automatic " \
                             "profile, pocket, drill, and through-hole detection."

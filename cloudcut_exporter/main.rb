@@ -1,7 +1,7 @@
 require 'json'
 
-module EricDesign
-  module CNCExporter
+module CloudCut
+  module Exporter
 
     # Data structures
     LineSeg = Struct.new(:start_pt, :end_pt)

@@ -8,13 +8,13 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUTPUT_DIR="${1:-$SCRIPT_DIR/build}"
 
 # Extract version from the loader file
-VERSION=$(grep -m1 'EXTENSION.version' "$SCRIPT_DIR/ed_cnc_exporter.rb" | sed 's/.*"\(.*\)".*/\1/')
+VERSION=$(grep -m1 'EXTENSION.version' "$SCRIPT_DIR/cloudcut_exporter.rb" | sed 's/.*"\(.*\)".*/\1/')
 if [ -z "$VERSION" ]; then
-  echo "Error: Could not read version from ed_cnc_exporter.rb" >&2
+  echo "Error: Could not read version from cloudcut_exporter.rb" >&2
   exit 1
 fi
 
-RBZ_NAME="ed_cnc_exporter_v${VERSION}.rbz"
+RBZ_NAME="cloudcut_exporter_v${VERSION}.rbz"
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -23,28 +23,28 @@ TMPDIR=$(mktemp -d)
 trap "rm -rf '$TMPDIR'" EXIT
 
 # Copy only the files that belong in the extension
-cp "$SCRIPT_DIR/ed_cnc_exporter.rb" "$TMPDIR/"
+cp "$SCRIPT_DIR/cloudcut_exporter.rb" "$TMPDIR/"
 
-mkdir -p "$TMPDIR/ed_cnc_exporter/html"
-mkdir -p "$TMPDIR/ed_cnc_exporter/icons"
+mkdir -p "$TMPDIR/cloudcut_exporter/html"
+mkdir -p "$TMPDIR/cloudcut_exporter/icons"
 
 for f in main.rb utils.rb geometry_extractor.rb path_converter.rb \
          svg_builder.rb json_builder.rb dialog.rb updater.rb; do
-  cp "$SCRIPT_DIR/ed_cnc_exporter/$f" "$TMPDIR/ed_cnc_exporter/"
+  cp "$SCRIPT_DIR/cloudcut_exporter/$f" "$TMPDIR/cloudcut_exporter/"
 done
 
-cp "$SCRIPT_DIR/ed_cnc_exporter/html/export_dialog.html" "$TMPDIR/ed_cnc_exporter/html/"
-cp "$SCRIPT_DIR/ed_cnc_exporter/html/style.css"           "$TMPDIR/ed_cnc_exporter/html/"
-cp "$SCRIPT_DIR/ed_cnc_exporter/html/dialog.js"            "$TMPDIR/ed_cnc_exporter/html/"
+cp "$SCRIPT_DIR/cloudcut_exporter/html/export_dialog.html" "$TMPDIR/cloudcut_exporter/html/"
+cp "$SCRIPT_DIR/cloudcut_exporter/html/style.css"           "$TMPDIR/cloudcut_exporter/html/"
+cp "$SCRIPT_DIR/cloudcut_exporter/html/dialog.js"            "$TMPDIR/cloudcut_exporter/html/"
 
-cp "$SCRIPT_DIR/ed_cnc_exporter/icons/icon_16.png" "$TMPDIR/ed_cnc_exporter/icons/"
-cp "$SCRIPT_DIR/ed_cnc_exporter/icons/icon_24.png" "$TMPDIR/ed_cnc_exporter/icons/"
+cp "$SCRIPT_DIR/cloudcut_exporter/icons/icon_16.png" "$TMPDIR/cloudcut_exporter/icons/"
+cp "$SCRIPT_DIR/cloudcut_exporter/icons/icon_24.png" "$TMPDIR/cloudcut_exporter/icons/"
 
 # Create the .rbz (zip) from inside the temp dir so paths are relative
 cd "$TMPDIR"
 zip -r "$OUTPUT_DIR/$RBZ_NAME" \
-  ed_cnc_exporter.rb \
-  ed_cnc_exporter/ \
+  cloudcut_exporter.rb \
+  cloudcut_exporter/ \
   -x '*.DS_Store' -x '__MACOSX/*'
 
 echo ""
