@@ -17,7 +17,7 @@ module CloudCut
         planar_faces = []
         entities.grep(Sketchup::Face).each do |face|
           normal = face.normal
-          origin = CNCExporter.face_centroid(face)
+          origin = Exporter.face_centroid(face)
           planar_faces << {
             face:   face,
             normal: [normal.x, normal.y, normal.z],
@@ -119,7 +119,7 @@ module CloudCut
         pocket_groups = classified[:pocket_faces]
 
         u_axis, v_axis = build_face_axes(profile_face)
-        origin = CNCExporter.face_centroid(profile_face)
+        origin = Exporter.face_centroid(profile_face)
 
         operations = []
 
