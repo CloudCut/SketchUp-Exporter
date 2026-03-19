@@ -23,7 +23,10 @@ module CloudCut
 
     # Menu and toolbar setup
     unless @loaded
-      cmd_export = UI::Command.new("Export SVG/JSON") { show_export_dialog }
+      cmd_export = UI::Command.new("Export SVG/JSON") {
+        Updater.check_once
+        show_export_dialog
+      }
       cmd_export.small_icon = File.join(dir, "icons", "icon_16.png")
       cmd_export.large_icon = File.join(dir, "icons", "icon_24.png")
       cmd_export.tooltip = "Export SVG/JSON"
@@ -41,8 +44,6 @@ module CloudCut
       toolbar.add_item(cmd_export)
       toolbar.restore
 
-      # Check for updates after SketchUp finishes loading
-      UI.start_timer(5, false) { Updater.check_on_startup }
 
       @loaded = true
     end

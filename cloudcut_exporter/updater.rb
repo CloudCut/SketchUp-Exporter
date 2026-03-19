@@ -15,9 +15,13 @@ module CloudCut
         EXTENSION.version
       end
 
-      # Entry point — called automatically on extension load.
-      # Silently checks GitHub; only shows UI if an update exists.
-      def self.check_on_startup
+      @checked_this_session = false
+
+      # Called on first use of the extension each session.
+      # Only checks once — subsequent calls are no-ops.
+      def self.check_once
+        return if @checked_this_session
+        @checked_this_session = true
         check_for_update(silent: true)
       end
 
