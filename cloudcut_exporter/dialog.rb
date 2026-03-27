@@ -99,7 +99,7 @@ module CloudCut
     end
 
     def self.perform_export(options, solids, parts_info)
-      format = options["format"] || "svg"
+      format = options["format"] || "json"
       unit = options["units"] || "mm"
       selected_materials = options["materials"] || []
       selected_thicknesses = (options["thicknesses"] || []).map { |t| t.to_f }

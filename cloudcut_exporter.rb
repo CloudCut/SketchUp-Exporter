@@ -12,7 +12,7 @@ module CloudCut
     EXTENSION.description = "Export selected solid groups and components " \
                             "as CNC-ready SVG and JSON files with automatic " \
                             "profile, pocket, drill, and through-hole detection."
-    EXTENSION.version     = "1.0.5"
+    EXTENSION.version     = "1.0.6"
     EXTENSION.copyright   = "2026"
     Sketchup.register_extension(EXTENSION, true)
   end
