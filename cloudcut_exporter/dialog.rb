@@ -158,8 +158,14 @@ module CloudCut
       ext = format == "svg" ? "svg" : "json"
 
       thickness_groups.each do |thickness_mm, components|
-        thickness_str = Units.format_depth(thickness_mm, "mm")
-        default_filename = "#{base_name}_#{thickness_str}mm.#{ext}"
+        if unit == "in"
+          thickness_val = thickness_mm / 25.4
+          thickness_str = Units.format_depth(thickness_val, "in")
+          default_filename = "#{base_name}_#{thickness_str}in.#{ext}"
+        else
+          thickness_str = Units.format_depth(thickness_mm, "mm")
+          default_filename = "#{base_name}_#{thickness_str}mm.#{ext}"
+        end
 
         path = UI.savepanel("Save #{ext.upcase} File", "", default_filename)
         next unless path

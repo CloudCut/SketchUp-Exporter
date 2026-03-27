@@ -1,11 +1,24 @@
 var partsData = [];
 var materialsData = [];
 var thicknessesData = [];
+var displayUnit = "mm";
+
+function mmToIn(val) {
+  return (val / 25.4);
+}
+
+function formatThickness(mm) {
+  if (displayUnit === "in") {
+    return mmToIn(mm).toFixed(3) + '"';
+  }
+  return mm + " mm";
+}
 
 function initDialog(parts, materials, thicknesses, defaultUnit, version) {
   partsData = parts;
   materialsData = materials;
   thicknessesData = thicknesses;
+  displayUnit = defaultUnit || "mm";
 
   // Set version in header
   if (version) {
@@ -27,7 +40,7 @@ function initDialog(parts, materials, thicknesses, defaultUnit, version) {
     var row = document.createElement("div");
     row.className = "part-row";
     row.innerHTML = '<span class="part-name">' + escapeHtml(p.name) + '</span>' +
-      '<span class="part-detail">' + p.thickness + ' mm' +
+      '<span class="part-detail">' + formatThickness(p.thickness) +
       (p.material !== "(none)" ? ' — ' + escapeHtml(p.material) : '') +
       '</span>';
     listEl.appendChild(row);
@@ -49,8 +62,39 @@ function initDialog(parts, materials, thicknesses, defaultUnit, version) {
   for (var k = 0; k < thicknesses.length; k++) {
     var lbl2 = document.createElement("label");
     lbl2.innerHTML = '<input type="checkbox" name="thickness" value="' +
-      thicknesses[k] + '" checked> ' + thicknesses[k] + ' mm';
+      thicknesses[k] + '" checked> ' + formatThickness(thicknesses[k]);
     thkEl.appendChild(lbl2);
+  }
+}
+
+function refreshDisplay() {
+  displayUnit = document.querySelector('input[name="units"]:checked').value;
+
+  // Update parts list
+  var listEl = document.getElementById("partsList");
+  listEl.innerHTML = "";
+  for (var i = 0; i < partsData.length; i++) {
+    var p = partsData[i];
+    var row = document.createElement("div");
+    row.className = "part-row";
+    row.innerHTML = '<span class="part-name">' + escapeHtml(p.name) + '</span>' +
+      '<span class="part-detail">' + formatThickness(p.thickness) +
+      (p.material !== "(none)" ? ' — ' + escapeHtml(p.material) : '') +
+      '</span>';
+    listEl.appendChild(row);
+  }
+
+  // Update thickness filters (preserve checked state)
+  var checkedThicknesses = getChecked("thickness");
+  var thkEl = document.getElementById("thicknessFilters");
+  thkEl.innerHTML = "";
+  for (var k = 0; k < thicknessesData.length; k++) {
+    var val = thicknessesData[k];
+    var isChecked = checkedThicknesses.indexOf(String(val)) !== -1;
+    var lbl = document.createElement("label");
+    lbl.innerHTML = '<input type="checkbox" name="thickness" value="' +
+      val + '"' + (isChecked ? ' checked' : '') + '> ' + formatThickness(val);
+    thkEl.appendChild(lbl);
   }
 }
 
