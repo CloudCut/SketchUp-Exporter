@@ -1,5 +1,5 @@
-module EricDesign
-  module CNCExporter
+module CloudCut
+  module Exporter
 
     # Keep a reference to prevent garbage collection closing the dialog.
     @export_dialog = nil
@@ -67,15 +67,15 @@ module EricDesign
       @export_dialog.close if @export_dialog
 
       dialog = UI::HtmlDialog.new(
-        dialog_title: "CNC Exporter",
-        preferences_key: "EricDesign_CNCExporter",
+        dialog_title: "CloudCut v#{EXTENSION.version}",
+        preferences_key: "CloudCut_Exporter",
         width: 500,
         height: 600,
         resizable: true
       )
 
       dialog.add_action_callback("initData") do |_ctx|
-        js = "initDialog([#{parts_json}], [#{materials_json}], [#{thicknesses_json}], #{json_str(default_unit)});"
+        js = "initDialog([#{parts_json}], [#{materials_json}], [#{thicknesses_json}], #{json_str(default_unit)}, #{json_str(EXTENSION.version)});"
         dialog.execute_script(js)
       end
 
@@ -99,7 +99,7 @@ module EricDesign
     end
 
     def self.perform_export(options, solids, parts_info)
-      format = options["format"] || "svg"
+      format = options["format"] || "json"
       unit = options["units"] || "mm"
       selected_materials = options["materials"] || []
       selected_thicknesses = (options["thicknesses"] || []).map { |t| t.to_f }
@@ -158,8 +158,14 @@ module EricDesign
       ext = format == "svg" ? "svg" : "json"
 
       thickness_groups.each do |thickness_mm, components|
-        thickness_str = Units.format_depth(thickness_mm, "mm")
-        default_filename = "#{base_name}_#{thickness_str}mm.#{ext}"
+        if unit == "in"
+          thickness_val = thickness_mm / 25.4
+          thickness_str = Units.format_depth(thickness_val, "in")
+          default_filename = "#{base_name}_#{thickness_str}in.#{ext}"
+        else
+          thickness_str = Units.format_depth(thickness_mm, "mm")
+          default_filename = "#{base_name}_#{thickness_str}mm.#{ext}"
+        end
 
         path = UI.savepanel("Save #{ext.upcase} File", "", default_filename)
         next unless path

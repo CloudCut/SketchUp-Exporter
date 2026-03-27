@@ -2,11 +2,11 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>CNC Exporter</title>
+  <title>CloudCut</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h2>CNC Export Options</h2>
+  <h2 id="app-title">CloudCut</h2>
 
   <div class="section">
     <h3>Detected Parts</h3>
@@ -15,14 +15,14 @@
 
   <div class="section">
     <h3>Output Format</h3>
-    <label><input type="radio" name="format" value="svg" checked> SVG</label>
-    <label><input type="radio" name="format" value="json"> JSON</label>
+    <label><input type="radio" name="format" value="svg"> SVG</label>
+    <label><input type="radio" name="format" value="json" checked> JSON</label>
   </div>
 
   <div class="section">
     <h3>Output Units</h3>
-    <label><input type="radio" name="units" value="mm" id="unitMm"> Millimeters</label>
-    <label><input type="radio" name="units" value="in" id="unitIn"> Inches</label>
+    <label><input type="radio" name="units" value="mm" id="unitMm" onchange="refreshDisplay()"> Millimeters</label>
+    <label><input type="radio" name="units" value="in" id="unitIn" onchange="refreshDisplay()"> Inches</label>
   </div>
 
   <div class="section">

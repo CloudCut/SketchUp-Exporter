@@ -1,5 +1,5 @@
-module EricDesign
-  module CNCExporter
+module CloudCut
+  module Exporter
     module GeometryExtractor
 
       # Find all solid groups/components in the selection, recursively.
@@ -17,7 +17,7 @@ module EricDesign
         planar_faces = []
         entities.grep(Sketchup::Face).each do |face|
           normal = face.normal
-          origin = CNCExporter.face_centroid(face)
+          origin = Exporter.face_centroid(face)
           planar_faces << {
             face:   face,
             normal: [normal.x, normal.y, normal.z],
@@ -119,7 +119,7 @@ module EricDesign
         pocket_groups = classified[:pocket_faces]
 
         u_axis, v_axis = build_face_axes(profile_face)
-        origin = CNCExporter.face_centroid(profile_face)
+        origin = Exporter.face_centroid(profile_face)
 
         operations = []
 
@@ -300,14 +300,21 @@ module EricDesign
 
         cross = dx_se * dy_sm - dy_se * dx_sm
 
-        large_arc = subtended_angle > Math::PI
-
-        # The cross product tells us which side of the chord the arc bows toward.
-        # For small arcs (<180°), the arc bows AWAY from center:
-        #   cross > 0 (bows right in Y-down) → center is left → CCW (sweep=0)
-        #   cross < 0 (bows left) → center is right → CW (sweep=1)
-        # For large arcs (>180°), the relationship inverts.
-        clockwise = large_arc ? (cross > 0) : (cross < 0)
+        # For near-semicircular arcs (≈180°), the large-arc flag is ambiguous
+        # since both possible arcs are the same size. Floating point can push
+        # the angle slightly past π, flipping both flags and producing the
+        # wrong arc. Force large_arc=false so only sweep determines direction.
+        if (subtended_angle - Math::PI).abs < 0.01
+          large_arc = false
+          clockwise = cross < 0
+        else
+          large_arc = subtended_angle > Math::PI
+          # For small arcs (<180°), the arc bows AWAY from center:
+          #   cross > 0 (bows right in Y-down) → center is left → CCW (sweep=0)
+          #   cross < 0 (bows left) → center is right → CW (sweep=1)
+          # For large arcs (>180°), the relationship inverts.
+          clockwise = large_arc ? (cross > 0) : (cross < 0)
+        end
 
         [clockwise, large_arc]
       end

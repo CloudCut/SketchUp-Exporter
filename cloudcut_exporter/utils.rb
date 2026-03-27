@@ -1,5 +1,5 @@
-module EricDesign
-  module CNCExporter
+module CloudCut
+  module Exporter
     module Units
       def self.inches_to_mm(val)
         val * 25.4

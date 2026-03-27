@@ -1,5 +1,5 @@
-module EricDesign
-  module CNCExporter
+module CloudCut
+  module Exporter
     module PathConverter
 
       # Convert an array of segments to an SVG path d-string.
