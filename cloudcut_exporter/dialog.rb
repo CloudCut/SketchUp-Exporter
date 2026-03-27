@@ -67,7 +67,7 @@ module CloudCut
       @export_dialog.close if @export_dialog
 
       dialog = UI::HtmlDialog.new(
-        dialog_title: "CNC Exporter",
+        dialog_title: "CloudCut v#{EXTENSION.version}",
         preferences_key: "CloudCut_Exporter",
         width: 500,
         height: 600,
@@ -75,7 +75,7 @@ module CloudCut
       )
 
       dialog.add_action_callback("initData") do |_ctx|
-        js = "initDialog([#{parts_json}], [#{materials_json}], [#{thicknesses_json}], #{json_str(default_unit)});"
+        js = "initDialog([#{parts_json}], [#{materials_json}], [#{thicknesses_json}], #{json_str(default_unit)}, #{json_str(EXTENSION.version)});"
         dialog.execute_script(js)
       end
 

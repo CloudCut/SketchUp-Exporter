@@ -2,10 +2,15 @@ var partsData = [];
 var materialsData = [];
 var thicknessesData = [];
 
-function initDialog(parts, materials, thicknesses, defaultUnit) {
+function initDialog(parts, materials, thicknesses, defaultUnit, version) {
   partsData = parts;
   materialsData = materials;
   thicknessesData = thicknesses;
+
+  // Set version in header
+  if (version) {
+    document.getElementById("app-title").textContent = "CloudCut v" + version;
+  }
 
   // Set default unit
   if (defaultUnit === "in") {
