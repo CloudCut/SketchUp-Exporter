@@ -18,7 +18,7 @@ module CloudCut
           "units"      => Units.unit_label(unit),
           "width"      => round_val(layouts[:total_width], unit),
           "height"     => round_val(layouts[:total_height], unit),
-          "materialThickness" => material_thickness(thickness_mm, unit),
+          "stockThickness" => material_thickness(thickness_mm, unit),
           "components" => []
         }
 
@@ -188,7 +188,7 @@ module CloudCut
       end
 
       def self.round_val(val, unit)
-        unit == "mm" ? val.round(4) : val.round(6)
+        unit == "mm" ? val.round(3) : val.round(4)
       end
 
     end

@@ -14,7 +14,7 @@ module CloudCut
       end
 
       def self.format_coord(val, unit)
-        unit == "mm" ? "%.4f" % val : "%.6f" % val
+        unit == "mm" ? "%.3f" % val : "%.4f" % val
       end
 
       def self.format_depth(val, unit)

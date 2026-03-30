@@ -7,7 +7,7 @@ module CloudCut
 
       # Build an SVG string from an array of ExportComponent objects.
       # unit is "mm" or "in".
-      def self.build_svg(components, unit)
+      def self.build_svg(components, unit, thickness_mm = nil)
         margin = margin_in_unit(unit)
         spacing = spacing_in_unit(unit)
 
@@ -22,9 +22,15 @@ module CloudCut
         lines = []
         lines << '<?xml version="1.0" encoding="UTF-8"?>'
         lines << '<!-- CNC Exporter v4 - 1in spacing -->'
+        stock_thickness_attr = if thickness_mm
+          thickness_val = unit == "mm" ? thickness_mm : thickness_mm / 25.4
+          " data-stock-thickness=\"#{fmt(thickness_val, unit)}\""
+        else
+          ""
+        end
         lines << "<svg xmlns=\"http://www.w3.org/2000/svg\""
         lines << "     width=\"#{fmt(total_width, unit)}#{unit_label}\" height=\"#{fmt(total_height, unit)}#{unit_label}\""
-        lines << "     viewBox=\"0 0 #{fmt(total_width, unit)} #{fmt(total_height, unit)}\">"
+        lines << "     viewBox=\"0 0 #{fmt(total_width, unit)} #{fmt(total_height, unit)}\"#{stock_thickness_attr}>"
         lines << ""
 
         layouts[:items].each_with_index do |item, comp_idx|
