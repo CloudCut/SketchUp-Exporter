@@ -8,7 +8,8 @@
       "Bash(cd:*)",
       "Bash(chmod:*)",
       "Bash(ruby:*)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:127.0.0.1)"
     ]
   }
 }
