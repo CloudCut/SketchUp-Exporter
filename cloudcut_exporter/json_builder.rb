@@ -6,7 +6,7 @@ module CloudCut
 
       # Build a JSON string from an array of ExportComponent objects.
       # unit is "mm" or "in".
-      def self.build_json(components, unit)
+      def self.build_json(components, unit, thickness_mm = nil)
         margin = unit == "mm" ? 25.4 : 1.0
         spacing = unit == "mm" ? 25.4 : 1.0
 
@@ -18,6 +18,7 @@ module CloudCut
           "units"      => Units.unit_label(unit),
           "width"      => round_val(layouts[:total_width], unit),
           "height"     => round_val(layouts[:total_height], unit),
+          "materialThickness" => material_thickness(thickness_mm, unit),
           "components" => []
         }
 
@@ -65,6 +66,15 @@ module CloudCut
       end
 
       private
+
+      def self.material_thickness(thickness_mm, unit)
+        return nil if thickness_mm.nil?
+        if unit == "mm"
+          round_val(thickness_mm, unit)
+        else
+          round_val(thickness_mm / 25.4, unit)
+        end
+      end
 
       def self.compute_layout(components, unit, margin, spacing)
         items = []

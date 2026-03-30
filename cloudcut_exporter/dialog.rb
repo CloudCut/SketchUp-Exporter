@@ -176,7 +176,7 @@ module CloudCut
         content = if format == "svg"
           SvgBuilder.build_svg(components, unit)
         else
-          JsonBuilder.build_json(components, unit)
+          JsonBuilder.build_json(components, unit, thickness_mm)
         end
 
         File.write(path, content)
