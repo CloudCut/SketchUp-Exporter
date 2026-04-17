@@ -48,15 +48,19 @@ module CloudCut
         }
       end
 
+      # Cluster near-identical thicknesses so floating-point drift on the
+      # stock plane doesn't split one nominal thickness into two groups.
+      cluster_thicknesses(parts_info)
+
       # Unique materials and thicknesses
       materials = parts_info.map { |p| p[:material] }.uniq.sort
-      thicknesses = parts_info.map { |p| p[:thickness_mm].round(2) }.uniq.sort
+      thicknesses = parts_info.map { |p| p[:canonical_thickness_mm].round(2) }.uniq.sort
 
       default_unit = default_output_unit
 
       # Build parts JSON for the dialog
       parts_json = parts_info.map { |p|
-        "{\"name\":#{json_str(p[:name])},\"thickness\":#{p[:thickness_mm].round(2)},\"material\":#{json_str(p[:material])}}"
+        "{\"name\":#{json_str(p[:name])},\"thickness\":#{p[:canonical_thickness_mm].round(2)},\"material\":#{json_str(p[:material])}}"
       }.join(",")
 
       materials_json = materials.map { |m| json_str(m) }.join(",")
@@ -108,7 +112,7 @@ module CloudCut
       filtered_indices = []
       parts_info.each_with_index do |pi, idx|
         next unless selected_materials.include?(pi[:material])
-        next unless selected_thicknesses.any? { |t| (t - pi[:thickness_mm].round(2)).abs < 0.01 }
+        next unless selected_thicknesses.any? { |t| (t - pi[:canonical_thickness_mm].round(2)).abs < 0.01 }
         filtered_indices << idx
       end
 
@@ -142,12 +146,13 @@ module CloudCut
         return
       end
 
-      # Group by thickness
+      # Group by canonical thickness (shared across a cluster, so no rounding
+      # needed — parts in the same cluster share the exact same value).
       thickness_groups = {}
       filtered_indices.each_with_index do |orig_idx, i|
         next if i >= export_components.length
         pi = parts_info[orig_idx]
-        thickness_key = pi[:thickness_mm].round(2)
+        thickness_key = pi[:canonical_thickness_mm]
         (thickness_groups[thickness_key] ||= []) << export_components[i]
       end
 
@@ -187,6 +192,36 @@ module CloudCut
     end
 
     private
+
+    # Assign each part a canonical thickness shared by every other part within
+    # tolerance. Prevents floating-point drift on the stock plane from splitting
+    # one nominal thickness into two file groups (e.g. 0.725" landing at
+    # 18.415 mm ± 1e-5 mm gets rounded to 18.41 vs 18.42).
+    CLUSTER_TOLERANCE_MM = 0.05
+
+    def self.cluster_thicknesses(parts_info)
+      clusters = []
+
+      parts_info.sort_by { |p| p[:thickness_mm] }.each do |part|
+        t = part[:thickness_mm]
+        cluster = clusters.find { |c| (c[:canonical_mm] - t).abs <= CLUSTER_TOLERANCE_MM }
+        if cluster
+          cluster[:parts] << part
+          cluster[:canonical_mm] =
+            cluster[:parts].sum { |p| p[:thickness_mm] } / cluster[:parts].length.to_f
+        else
+          clusters << { canonical_mm: t, parts: [part] }
+        end
+      end
+
+      clusters.each do |cluster|
+        canonical_mm = cluster[:canonical_mm]
+        cluster[:parts].each do |part|
+          part[:canonical_thickness_mm] = canonical_mm
+          part[:canonical_thickness_in] = canonical_mm / 25.4
+        end
+      end
+    end
 
     def self.json_str(s)
       "\"#{s.to_s.gsub("\\", "\\\\\\\\").gsub("\"", "\\\"")}\""
