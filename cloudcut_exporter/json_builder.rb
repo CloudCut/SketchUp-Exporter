@@ -14,7 +14,7 @@ module CloudCut
         layouts = compute_layout(components, unit, margin, spacing)
 
         result = {
-          "exporterVersion" => "v4-1in-spacing",
+          "exporterVersion" => "v5-world-transform",
           "units"      => Units.unit_label(unit),
           "width"      => round_val(layouts[:total_width], unit),
           "height"     => round_val(layouts[:total_height], unit),

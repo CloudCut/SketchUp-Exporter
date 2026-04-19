@@ -21,7 +21,7 @@ module CloudCut
 
         lines = []
         lines << '<?xml version="1.0" encoding="UTF-8"?>'
-        lines << '<!-- CNC Exporter v4 - 1in spacing -->'
+        lines << '<!-- CNC Exporter v5 - world-space transforms -->'
         stock_thickness_attr = if thickness_mm
           thickness_val = unit == "mm" ? thickness_mm : thickness_mm / 25.4
           " data-stock-thickness=\"#{fmt(thickness_val, unit)}\""

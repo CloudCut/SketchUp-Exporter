@@ -23,17 +23,35 @@ module CloudCut
         return
       end
 
+      # Reject non-uniform scale: arcs and circles become ellipses under
+      # anisotropic scale, which can't be faithfully represented as CNC
+      # toolpaths. Users must reset or bake scale before exporting.
+      non_uniform = solids.reject { |s| GeometryExtractor.uniform_scale?(s[:transform]) }
+      unless non_uniform.empty?
+        names = non_uniform.map { |s| part_name(s[:entity]) || "(unnamed)" }.uniq.sort
+        UI.messagebox(
+          "Non-uniform scale detected on:\n  #{names.join("\n  ")}\n\n" \
+          "Circles and arcs cannot be faithfully exported when X/Y/Z scales differ. " \
+          "Reset the scale (right-click → Scale → Reset Scale) or explode and re-group " \
+          "to bake the scale into the geometry, then export again."
+        )
+        return
+      end
+
       # Gather metadata for the dialog
       parts_info = []
       unnamed_count = 0
-      solids.each do |entity|
+      solids.each do |s|
+        entity = s[:entity]
+        transform = s[:transform]
+
         name = part_name(entity)
         unless name
           unnamed_count += 1
           name = "Solid_%03d" % unnamed_count
         end
 
-        classified = GeometryExtractor.classify_faces(entity.definition.entities)
+        classified = GeometryExtractor.classify_faces(entity.definition.entities, transform)
         thickness_in = classified ? classified[:thickness] : 0.0
         thickness_mm = Units.inches_to_mm(thickness_in)
 
@@ -41,7 +59,7 @@ module CloudCut
 
         parts_info << {
           name: name,
-          guid: entity.guid,
+          guid: export_guid(entity, s[:ancestor_pids]),
           thickness_in: thickness_in,
           thickness_mm: thickness_mm,
           material: material_name
@@ -124,13 +142,15 @@ module CloudCut
       # Extract geometry for each filtered part
       export_components = []
       filtered_indices.each do |idx|
-        entity = solids[idx]
+        s = solids[idx]
+        entity = s[:entity]
+        transform = s[:transform]
         pi = parts_info[idx]
 
-        classified = GeometryExtractor.classify_faces(entity.definition.entities)
+        classified = GeometryExtractor.classify_faces(entity.definition.entities, transform)
         next unless classified
 
-        operations = GeometryExtractor.extract_contours(classified)
+        operations = GeometryExtractor.extract_contours(classified, transform)
         next if operations.empty?
 
         export_components << ExportComponent.new(
@@ -192,6 +212,16 @@ module CloudCut
     end
 
     private
+
+    # Generate a unique, stable identifier for an exported instance. Uses
+    # entity.persistent_id (guaranteed unique per entity within a model) and
+    # prefixes ancestor persistent_ids when an entity is reached through
+    # multiple parent paths (nested shared-definition case), ensuring each
+    # world-space placement gets a distinct sourceGuid.
+    def self.export_guid(entity, ancestor_pids)
+      path = ancestor_pids + [entity.persistent_id]
+      path.join("/")
+    end
 
     # Assign each part a canonical thickness shared by every other part within
     # tolerance. Prevents floating-point drift on the stock plane from splitting

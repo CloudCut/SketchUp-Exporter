@@ -2,46 +2,89 @@ module CloudCut
   module Exporter
     module GeometryExtractor
 
+      UNIFORM_SCALE_TOL = 0.0001
+
       # Find all solid groups/components in the selection, recursively.
+      # Returns an array of { entity:, transform:, ancestor_pids: } hashes,
+      # where transform maps points from the entity's definition space into
+      # world space. Each tuple represents one world-space placement — the
+      # same entity reached through multiple parent instances emits one tuple
+      # per path, with distinct transforms.
       def self.find_solids_in_selection(selection)
-        solids = []
-        selection.each { |entity| collect_solids(entity, solids) }
-        solids
+        results = []
+        selection.each do |entity|
+          collect_solids(entity, results, Geom::Transformation.new, [])
+        end
+        results
+      end
+
+      # Return the per-axis scale magnitudes by reading the raw matrix columns.
+      # Note: Geom::Transformation#xaxis/yaxis/zaxis return UNIT vectors and so
+      # can't be used for scale — their length is always 1 regardless of scale.
+      def self.axis_scales(transformation)
+        a = transformation.to_a
+        sx = Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2])
+        sy = Math.sqrt(a[4] * a[4] + a[5] * a[5] + a[6] * a[6])
+        sz = Math.sqrt(a[8] * a[8] + a[9] * a[9] + a[10] * a[10])
+        [sx, sy, sz]
+      end
+
+      # True iff all three axis scales are equal magnitude. Mirrored transforms
+      # still pass because column lengths are magnitudes; handedness is
+      # detected separately via mirrored?.
+      def self.uniform_scale?(transformation)
+        sx, sy, sz = axis_scales(transformation)
+        (sx - sy).abs < UNIFORM_SCALE_TOL && (sx - sz).abs < UNIFORM_SCALE_TOL
+      end
+
+      def self.mirrored?(transformation)
+        a = transformation.to_a
+        # Determinant of upper-left 3x3 (column-major): negative means odd flips.
+        det = a[0] * (a[5] * a[10] - a[6] * a[9]) -
+              a[4] * (a[1] * a[10] - a[2] * a[9]) +
+              a[8] * (a[1] * a[6]  - a[2] * a[5])
+        det < 0
+      end
+
+      # Transform a direction vector (rotation + scale, no translation).
+      def self.transform_direction(vec, transform)
+        p0 = transform * Geom::Point3d.new(0, 0, 0)
+        p1 = transform * Geom::Point3d.new(vec.x, vec.y, vec.z)
+        v = Geom::Vector3d.new(p1.x - p0.x, p1.y - p0.y, p1.z - p0.z)
+        v.length > 1e-9 ? v.normalize : v
       end
 
       # Classify faces of a solid into profile, through-hole, and pocket groups.
-      # Returns a hash with :profile_face, :through_hole_faces, :thickness,
-      # :pocket_faces, :sheet_normal, or nil if classification fails.
-      def self.classify_faces(entities)
-        # Step 1: Collect all faces
+      # entities is the definition entity list; world_transform maps those
+      # entities into world space. Classification runs in world space so that
+      # scale and mirror participate in thickness, face areas, and pocket
+      # orientation decisions.
+      def self.classify_faces(entities, world_transform = Geom::Transformation.new)
         planar_faces = []
         entities.grep(Sketchup::Face).each do |face|
-          normal = face.normal
-          origin = Exporter.face_centroid(face)
+          world_normal = transform_direction(face.normal, world_transform)
+          world_origin = world_transform * Exporter.face_centroid(face)
           planar_faces << {
             face:   face,
-            normal: [normal.x, normal.y, normal.z],
-            origin: [origin.x, origin.y, origin.z],
+            normal: [world_normal.x, world_normal.y, world_normal.z],
+            origin: [world_origin.x, world_origin.y, world_origin.z],
+            # Areas scale uniformly by s^2; only relative ordering matters here.
             area:   face.area
           }
         end
         return nil if planar_faces.empty?
 
-        # Step 2: Group faces by normal direction
         normal_groups = group_faces_by_normal(planar_faces)
 
-        # Step 3: Sheet plane = group with largest total area
         best_group = normal_groups.max_by { |g| g[:total_area] }
         sheet_normal = best_group[:normal]
         sheet_faces = best_group[:faces]
 
-        # Step 4: Project each face origin along sheet normal to get height
         sheet_faces.each do |f|
           ox, oy, oz = f[:origin]
           f[:height] = ox * sheet_normal[0] + oy * sheet_normal[1] + oz * sheet_normal[2]
         end
 
-        # Step 5: Group by height level
         height_groups = group_by_level(sheet_faces, :height, 0.0001)
 
         highest = height_groups.map { |h, _| h }.max
@@ -66,7 +109,6 @@ module CloudCut
           end
         end
 
-        # Step 6: Determine which side pockets open from
         pockets_open_toward_high = true
         unless pocket_faces.empty?
           dot_sum = 0.0
@@ -79,7 +121,6 @@ module CloudCut
           pockets_open_toward_high = dot_sum > 0
         end
 
-        # Step 7: Profile face = bottom side (opposite from pocket openings)
         if pockets_open_toward_high
           machining_top_level = highest
           bottom_faces = low_faces
@@ -90,7 +131,7 @@ module CloudCut
 
         return nil if bottom_faces.empty?
 
-        profile_face = bottom_faces.max_by { |f| f[:area] }[:face]
+        profile_face_info = bottom_faces.max_by { |f| f[:area] }
 
         pocket_groups = {}
         pocket_faces.each do |level, f|
@@ -101,7 +142,9 @@ module CloudCut
         pocket_groups = pocket_groups.sort_by { |depth, _| depth }
 
         {
-          profile_face:       profile_face,
+          profile_face:       profile_face_info[:face],
+          profile_normal:     profile_face_info[:normal],
+          profile_origin:     profile_face_info[:origin],
           through_hole_faces: bottom_faces,
           thickness:          thickness,
           pocket_faces:       pocket_groups,
@@ -110,21 +153,24 @@ module CloudCut
       end
 
       # Extract contours from classified faces, producing ExportOperation objects.
-      def self.extract_contours(classified)
+      # world_transform must match the one passed to classify_faces — all vertex
+      # coordinates are transformed into world space before 2D projection.
+      def self.extract_contours(classified, world_transform = Geom::Transformation.new)
         return [] unless classified
 
         profile_face = classified[:profile_face]
-        through_hole_faces = classified[:through_hole_faces]
+        world_normal = Geom::Vector3d.new(*classified[:profile_normal])
+        origin = Geom::Point3d.new(*classified[:profile_origin])
         thickness = classified[:thickness]
+        through_hole_faces = classified[:through_hole_faces]
         pocket_groups = classified[:pocket_faces]
 
-        u_axis, v_axis = build_face_axes(profile_face)
-        origin = Exporter.face_centroid(profile_face)
+        u_axis, v_axis = build_axes_from_normal(world_normal)
 
         operations = []
 
         # Profile: outer loop of the profile face
-        outer_contour = extract_loop(profile_face.outer_loop, origin, u_axis, v_axis)
+        outer_contour = extract_loop(profile_face.outer_loop, origin, u_axis, v_axis, world_transform)
         if outer_contour
           outer_contour.is_outer = true
           operations << ExportOperation.new(:profile, thickness, [outer_contour])
@@ -138,7 +184,7 @@ module CloudCut
           face_obj = face_dict[:face]
           face_obj.loops.each do |loop|
             next if loop.outer?
-            contour = extract_loop(loop, origin, u_axis, v_axis)
+            contour = extract_loop(loop, origin, u_axis, v_axis, world_transform)
             next unless contour
             contour.is_outer = false
 
@@ -164,7 +210,7 @@ module CloudCut
           faces.each do |face_dict|
             face_obj = face_dict[:face]
             face_obj.loops.each do |loop|
-              contour = extract_loop(loop, origin, u_axis, v_axis)
+              contour = extract_loop(loop, origin, u_axis, v_axis, world_transform)
               next unless contour
               contour.is_outer = loop.outer?
               pocket_contours << contour
@@ -178,10 +224,8 @@ module CloudCut
         operations
       end
 
-      # Build a 2D projection frame from a face.
-      def self.build_face_axes(face)
-        normal = face.normal
-
+      # Build a 2D projection frame orthogonal to a world-space normal.
+      def self.build_axes_from_normal(normal)
         if normal.z.abs > 0.9
           u = Geom::Vector3d.new(1, 0, 0)
           v = Geom::Vector3d.new(0, -1, 0)
@@ -209,8 +253,13 @@ module CloudCut
         [u, v]
       end
 
-      # Extract a single loop into an ExportContour.
-      def self.extract_loop(loop, origin, u_axis, v_axis)
+      # Extract a single loop into an ExportContour. All vertex positions are
+      # transformed to world space before projection so that scale, mirror, and
+      # rotation of the containing instance are baked into the 2D output. Arc
+      # radii are derived from the projected 2D points rather than a separate
+      # scale factor, so they're correct regardless of how scale is expressed
+      # in the transformation matrix.
+      def self.extract_loop(loop, origin, u_axis, v_axis, world_transform = Geom::Transformation.new)
         edges = loop.edges
         return nil if edges.empty?
 
@@ -232,8 +281,15 @@ module CloudCut
 
             # Full circle?
             if (curve.end_angle - curve.start_angle - 2 * Math::PI).abs < 0.01
-              center_2d = project_point(curve.center, origin, u_axis, v_axis)
-              segments << CircleSeg.new(center_2d, curve.radius)
+              center_world = world_transform * curve.center
+              center_2d = project_point(center_world, origin, u_axis, v_axis)
+              # Radius = 2D distance from projected center to any point on the circle.
+              sample_world = world_transform * arc_edges.first.start.position
+              sample_2d = project_point(sample_world, origin, u_axis, v_axis)
+              radius_2d = Math.sqrt(
+                (sample_2d[0] - center_2d[0])**2 + (sample_2d[1] - center_2d[1])**2
+              )
+              segments << CircleSeg.new(center_2d, radius_2d)
             else
               # Partial arc
               first_edge = arc_edges.first
@@ -248,24 +304,35 @@ module CloudCut
                 end_pt = last_edge.end.position
               end
 
-              start_2d = project_point(start_pt, origin, u_axis, v_axis)
-              end_2d = project_point(end_pt, origin, u_axis, v_axis)
-              center_2d = project_point(curve.center, origin, u_axis, v_axis)
-              radius = curve.radius
+              start_world = world_transform * start_pt
+              end_world = world_transform * end_pt
+              center_world = world_transform * curve.center
 
-              # Sample a midpoint on the actual arc to determine sweep direction
+              start_2d = project_point(start_world, origin, u_axis, v_axis)
+              end_2d = project_point(end_world, origin, u_axis, v_axis)
+              center_2d = project_point(center_world, origin, u_axis, v_axis)
+
+              # Radius = 2D distance from projected center to projected start.
+              radius_2d = Math.sqrt(
+                (start_2d[0] - center_2d[0])**2 + (start_2d[1] - center_2d[1])**2
+              )
+
+              # Sample a midpoint on the actual arc to determine sweep direction.
+              # Sampled in world space so a mirrored instance correctly flips
+              # the computed sweep flag.
               mid_edge = arc_edges[arc_edges.length / 2]
               mid_pt_3d = Geom::Point3d.linear_combination(
                 0.5, mid_edge.start.position, 0.5, mid_edge.end.position
               )
-              mid_2d = project_point(mid_pt_3d, origin, u_axis, v_axis)
+              mid_world = world_transform * mid_pt_3d
+              mid_2d = project_point(mid_world, origin, u_axis, v_axis)
 
               subtended_angle = (curve.end_angle - curve.start_angle).abs
               clockwise, large_arc = compute_arc_flags(
                 start_2d, end_2d, mid_2d, subtended_angle
               )
 
-              segments << ArcSeg.new(start_2d, end_2d, center_2d, radius, clockwise, large_arc)
+              segments << ArcSeg.new(start_2d, end_2d, center_2d, radius_2d, clockwise, large_arc)
             end
 
             i = j
@@ -275,8 +342,11 @@ module CloudCut
             start_pt = reversed ? edge.end.position : edge.start.position
             end_pt = reversed ? edge.start.position : edge.end.position
 
-            start_2d = project_point(start_pt, origin, u_axis, v_axis)
-            end_2d = project_point(end_pt, origin, u_axis, v_axis)
+            start_world = world_transform * start_pt
+            end_world = world_transform * end_pt
+
+            start_2d = project_point(start_world, origin, u_axis, v_axis)
+            end_2d = project_point(end_world, origin, u_axis, v_axis)
 
             segments << LineSeg.new(start_2d, end_2d)
             i += 1
@@ -291,8 +361,6 @@ module CloudCut
       # mid_2d is an actual point on the arc, projected to 2D.
       # subtended_angle is the arc's angle from ArcCurve (always positive).
       def self.compute_arc_flags(start_2d, end_2d, mid_2d, subtended_angle)
-        # Cross product of (start→end) × (start→mid) determines which side
-        # of the chord the arc bulges toward.
         dx_se = end_2d[0] - start_2d[0]
         dy_se = end_2d[1] - start_2d[1]
         dx_sm = mid_2d[0] - start_2d[0]
@@ -309,22 +377,16 @@ module CloudCut
           clockwise = cross < 0
         else
           large_arc = subtended_angle > Math::PI
-          # For small arcs (<180°), the arc bows AWAY from center:
-          #   cross > 0 (bows right in Y-down) → center is left → CCW (sweep=0)
-          #   cross < 0 (bows left) → center is right → CW (sweep=1)
-          # For large arcs (>180°), the relationship inverts.
           clockwise = large_arc ? (cross > 0) : (cross < 0)
         end
 
         [clockwise, large_arc]
       end
 
-      # Check if a contour is a single circle (drill candidate).
       def self.circle_loop?(contour)
         segs = contour.segments
         return true if segs.length == 1 && segs[0].is_a?(CircleSeg)
 
-        # Two semicircular arcs with same center and radius
         if segs.length == 2 && segs.all? { |s| s.is_a?(ArcSeg) }
           c1, c2 = segs
           dist = Math.sqrt((c1.center[0] - c2.center[0])**2 + (c1.center[1] - c2.center[1])**2)
@@ -336,14 +398,21 @@ module CloudCut
 
       private
 
-      def self.collect_solids(entity, solids)
-        if entity.is_a?(Sketchup::Group) || entity.is_a?(Sketchup::ComponentInstance)
-          if entity.manifold?
-            solids << entity
-          else
-            entity.definition.entities.each do |child|
-              collect_solids(child, solids)
-            end
+      def self.collect_solids(entity, results, parent_transform, ancestor_pids)
+        return unless entity.is_a?(Sketchup::Group) || entity.is_a?(Sketchup::ComponentInstance)
+
+        world_transform = parent_transform * entity.transformation
+
+        if entity.manifold?
+          results << {
+            entity:         entity,
+            transform:      world_transform,
+            ancestor_pids:  ancestor_pids
+          }
+        else
+          child_ancestors = ancestor_pids + [entity.persistent_id]
+          entity.definition.entities.each do |child|
+            collect_solids(child, results, world_transform, child_ancestors)
           end
         end
       end
@@ -391,9 +460,11 @@ module CloudCut
       end
 
       def self.flat_result(sheet_faces, sheet_normal)
-        profile_face = sheet_faces.max_by { |f| f[:area] }[:face]
+        profile_face_info = sheet_faces.max_by { |f| f[:area] }
         {
-          profile_face:       profile_face,
+          profile_face:       profile_face_info[:face],
+          profile_normal:     profile_face_info[:normal],
+          profile_origin:     profile_face_info[:origin],
           through_hole_faces: sheet_faces,
           thickness:          0.0,
           pocket_faces:       [],
