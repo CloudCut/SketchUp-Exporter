@@ -71,14 +71,14 @@ module CloudCut
       def self.prompt_update(remote_version, download_url, release_url)
         if download_url
           choice = UI.messagebox(
-            "CNC Exporter v#{remote_version} is available (you have v#{current_version}).\n\n" \
+            "CloudCut Exporter v#{remote_version} is available (you have v#{current_version}).\n\n" \
             "Download and install now?",
             MB_YESNO
           )
           download_and_install(download_url) if choice == IDYES
         else
           choice = UI.messagebox(
-            "CNC Exporter v#{remote_version} is available (you have v#{current_version}).\n\n" \
+            "CloudCut Exporter v#{remote_version} is available (you have v#{current_version}).\n\n" \
             "No .rbz found in the release assets.\n" \
             "Open the release page to download manually?",
             MB_YESNO
@@ -107,7 +107,7 @@ module CloudCut
           Sketchup.install_from_archive(rbz_path)
 
           UI.messagebox(
-            "CNC Exporter has been updated!\n\n" \
+            "CloudCut Exporter has been updated!\n\n" \
             "Please restart SketchUp for changes to take effect."
           )
         end

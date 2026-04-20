@@ -23,24 +23,24 @@ module CloudCut
 
     # Menu and toolbar setup
     unless @loaded
-      cmd_export = UI::Command.new("Export SVG/JSON") {
+      cmd_export = UI::Command.new("Export JSON") {
         Updater.check_once
         show_export_dialog
       }
       cmd_export.small_icon = File.join(dir, "icons", "icon_16.png")
       cmd_export.large_icon = File.join(dir, "icons", "icon_24.png")
-      cmd_export.tooltip = "Export SVG/JSON"
-      cmd_export.status_bar_text = "Export selected solid groups/components as CNC-ready SVG or JSON files."
+      cmd_export.tooltip = "Export JSON"
+      cmd_export.status_bar_text = "Export selected solid groups/components as CNC-ready JSON files."
 
       menu = UI.menu("Extensions")
-      submenu = menu.add_submenu("CNC Exporter")
+      submenu = menu.add_submenu("CloudCut Exporter")
       submenu.add_item(cmd_export)
 
       cmd_update = UI::Command.new("Check for Updates") { Updater.check_for_update(silent: false) }
-      cmd_update.tooltip = "Check for CNC Exporter updates on GitHub"
+      cmd_update.tooltip = "Check for updates"
       submenu.add_item(cmd_update)
 
-      toolbar = UI::Toolbar.new("CNC Exporter")
+      toolbar = UI::Toolbar.new("CloudCut Exporter")
       toolbar.add_item(cmd_export)
       toolbar.restore
 
