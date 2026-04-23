@@ -208,7 +208,12 @@ module CloudCut
       end
 
       @export_dialog.close if @export_dialog
-      UI.messagebox("Export complete!")
+
+      choice = UI.messagebox(
+        "Export complete!\n\nOpen CloudCut to process your file?",
+        MB_OKCANCEL
+      )
+      UI.openURL("https://app.cloudcut.cam") if choice == IDOK
     end
 
     private
