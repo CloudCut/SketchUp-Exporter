@@ -227,14 +227,39 @@ module CloudCut
       # Build a 2D projection frame orthogonal to a world-space normal.
       def self.build_axes_from_normal(normal)
         if normal.z.abs > 0.9
+          # For horizontal faces (normal along Z)
           u = Geom::Vector3d.new(1, 0, 0)
-          v = Geom::Vector3d.new(0, -1, 0)
+          # Looking down (normal.z > 0): standard orientation
+          # Looking up (normal.z < 0): flip Y to maintain correct handedness
+          v = normal.z > 0 ? Geom::Vector3d.new(0, 1, 0) : Geom::Vector3d.new(0, -1, 0)
+        elsif normal.x.abs > 0.9
+          # For faces perpendicular to X axis
+          if normal.x < 0
+            # Looking along -X: Y goes down, Z goes right
+            u = Geom::Vector3d.new(0, -1, 0)
+            v = Geom::Vector3d.new(0, 0, 1)  # Changed from -1 to 1
+          else
+            # Looking along +X: Y goes up, Z goes right
+            u = Geom::Vector3d.new(0, 1, 0)
+            v = Geom::Vector3d.new(0, 0, 1)  # Changed from -1 to 1
+          end
+        elsif normal.y.abs > 0.9
+          # For faces perpendicular to Y axis
+          if normal.y < 0
+            # Looking along -Y: X goes right, Z goes down
+            u = Geom::Vector3d.new(1, 0, 0)
+            v = Geom::Vector3d.new(0, 0, 1)  # Changed from -1 to 1
+          else
+            # Looking along +Y: X goes left, Z goes down
+            u = Geom::Vector3d.new(-1, 0, 0)
+            v = Geom::Vector3d.new(0, 0, 1)  # Changed from -1 to 1
+          end
         else
+          # For arbitrary orientations, use cross product
           ref = Geom::Vector3d.new(0, 0, 1)
           u = ref.cross(normal)
           u.normalize!
           v = normal.cross(u)
-          v.reverse!
           v.normalize!
         end
 
