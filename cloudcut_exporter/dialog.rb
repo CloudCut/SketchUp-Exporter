@@ -13,14 +13,37 @@ module CloudCut
 
       selection = model.selection
       solids = GeometryExtractor.find_solids_in_selection(selection)
+      non_solids = GeometryExtractor.find_non_solids_in_selection(selection)
 
       if solids.empty?
-        UI.messagebox(
-          "No solid groups or components selected.\n\n" \
-          "Select one or more groups/components that SketchUp considers 'Solid' " \
-          "(shown in Entity Info), then try again."
-        )
+        if non_solids.empty?
+          UI.messagebox(
+            "No solid groups or components selected.\n\n" \
+            "Select one or more groups/components that SketchUp considers 'Solid' " \
+            "(shown in Entity Info), then try again."
+          )
+        else
+          highlight_non_solids(non_solids)
+          names = non_solid_names(non_solids)
+          UI.messagebox(
+            "These selected parts are not solid, so there's nothing to export:\n  #{names.join("\n  ")}\n\n" \
+            "They're now outlined in red in the model. Each part must be a single " \
+            "'Solid' group/component (check Entity Info). Fix them and try again."
+          )
+        end
         return
+      end
+
+      # Some valid solids exist. Outline any non-solid parts in red and warn
+      # the user, then proceed to export the solids they can actually use.
+      unless non_solids.empty?
+        highlight_non_solids(non_solids)
+        names = non_solid_names(non_solids)
+        UI.messagebox(
+          "Some selected parts are not solid and will be skipped:\n  #{names.join("\n  ")}\n\n" \
+          "They're now outlined in red in the model. The remaining solid parts " \
+          "will be exported."
+        )
       end
 
       # Reject non-uniform scale: arcs and circles become ellipses under
@@ -256,6 +279,12 @@ module CloudCut
           part[:canonical_thickness_in] = canonical_mm / 25.4
         end
       end
+    end
+
+    # Display names for the non-solid parts (each a { entity:, transform: }
+    # hash), falling back to a label for parts the user never named.
+    def self.non_solid_names(non_solids)
+      non_solids.map { |s| part_name(s[:entity]) || "(unnamed)" }.uniq.sort
     end
 
     def self.json_str(s)

@@ -29,7 +29,7 @@ mkdir -p "$TMPDIR/cloudcut_exporter/html"
 mkdir -p "$TMPDIR/cloudcut_exporter/icons"
 
 for f in main.rb utils.rb geometry_extractor.rb path_converter.rb \
-         svg_builder.rb json_builder.rb dialog.rb updater.rb; do
+         svg_builder.rb json_builder.rb dialog.rb highlight.rb updater.rb; do
   cp "$SCRIPT_DIR/cloudcut_exporter/$f" "$TMPDIR/cloudcut_exporter/"
 done
 
