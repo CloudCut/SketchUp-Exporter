@@ -18,6 +18,7 @@ module CloudCut
     Sketchup.require(File.join(dir, "path_converter"))
     Sketchup.require(File.join(dir, "svg_builder"))
     Sketchup.require(File.join(dir, "json_builder"))
+    Sketchup.require(File.join(dir, "highlight"))
     Sketchup.require(File.join(dir, "dialog"))
     Sketchup.require(File.join(dir, "updater"))
 

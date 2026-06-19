@@ -18,6 +18,24 @@ module CloudCut
         results
       end
 
+      # Find the non-solid leaf parts in the selection, recursing through
+      # nested groups/components the same way find_solids_in_selection does.
+      # A "non-solid part" is a group/component that SketchUp won't treat as
+      # solid and that holds no nested containers of its own — i.e. a leaf the
+      # user likely meant to export but can't. Assemblies (non-solid wrappers
+      # around nested parts) are descended into, not flagged, so their solid
+      # children still export and only their non-solid children get reported.
+      # Returns an array of { entity:, transform: } hashes, where transform
+      # maps the entity's definition space into the top-level selection space
+      # (matching find_solids_in_selection's convention).
+      def self.find_non_solids_in_selection(selection)
+        results = []
+        selection.each do |entity|
+          collect_non_solids(entity, results, Geom::Transformation.new)
+        end
+        results
+      end
+
       # Return the per-axis scale magnitudes by reading the raw matrix columns.
       # Note: Geom::Transformation#xaxis/yaxis/zaxis return UNIT vectors and so
       # can't be used for scale — their length is always 1 regardless of scale.
@@ -438,6 +456,25 @@ module CloudCut
           child_ancestors = ancestor_pids + [entity.persistent_id]
           entity.definition.entities.each do |child|
             collect_solids(child, results, world_transform, child_ancestors)
+          end
+        end
+      end
+
+      def self.collect_non_solids(entity, results, parent_transform)
+        return unless entity.is_a?(Sketchup::Group) || entity.is_a?(Sketchup::ComponentInstance)
+
+        world_transform = parent_transform * entity.transformation
+        return if entity.manifold?
+
+        child_containers = entity.definition.entities.select do |e|
+          e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+        end
+
+        if child_containers.empty?
+          results << { entity: entity, transform: world_transform }
+        else
+          child_containers.each do |child|
+            collect_non_solids(child, results, world_transform)
           end
         end
       end
