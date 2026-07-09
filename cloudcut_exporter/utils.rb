@@ -33,9 +33,10 @@ module CloudCut
 
     def self.face_centroid(face)
       pts = face.vertices.map(&:position)
-      cx = pts.sum { |p| p.x } / pts.length.to_f
-      cy = pts.sum { |p| p.y } / pts.length.to_f
-      cz = pts.sum { |p| p.z } / pts.length.to_f
+      # inject instead of sum: Array#sum needs Ruby 2.4 (SketchUp 2019+).
+      cx = pts.inject(0.0) { |s, p| s + p.x } / pts.length.to_f
+      cy = pts.inject(0.0) { |s, p| s + p.y } / pts.length.to_f
+      cz = pts.inject(0.0) { |s, p| s + p.z } / pts.length.to_f
       Geom::Point3d.new(cx, cy, cz)
     end
 

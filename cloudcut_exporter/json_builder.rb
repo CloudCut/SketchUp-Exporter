@@ -179,7 +179,8 @@ module CloudCut
           end
         end
 
-        parts << "Z" unless parts.last&.end_with?("Z")
+        # No &. here — Ruby 2.2 (SketchUp 2017/2018) can't parse it.
+        parts << "Z" unless parts.last && parts.last.end_with?("Z")
         parts.join(" ")
       end
 

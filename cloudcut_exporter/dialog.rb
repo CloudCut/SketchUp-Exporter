@@ -266,7 +266,7 @@ module CloudCut
         if cluster
           cluster[:parts] << part
           cluster[:canonical_mm] =
-            cluster[:parts].sum { |p| p[:thickness_mm] } / cluster[:parts].length.to_f
+            cluster[:parts].inject(0.0) { |s, p| s + p[:thickness_mm] } / cluster[:parts].length.to_f
         else
           clusters << { canonical_mm: t, parts: [part] }
         end
