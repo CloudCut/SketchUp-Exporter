@@ -14,7 +14,7 @@ module CloudCut
         layouts = compute_layout(components, unit, margin, spacing)
 
         result = {
-          "exporterVersion" => "v5-world-transform",
+          "exporterVersion" => "v6-island-flags",
           "units"      => Units.unit_label(unit),
           "width"      => round_val(layouts[:total_width], unit),
           "height"     => round_val(layouts[:total_height], unit),
@@ -41,8 +41,15 @@ module CloudCut
               "circles"  => []
             }
 
+            # Islands (non-outer pocket contours) are marked by index into
+            # paths/circles. Additive only: consumers that predate these
+            # fields ignore them and fall back to containment detection.
+            island_path_indices = []
+            island_circle_indices = []
+
             op.contours.each do |contour|
               segs = contour.segments
+              is_island = op.op_type.to_s == "pocket" && contour.is_outer == false
 
               if segs.length == 1 && segs[0].is_a?(CircleSeg)
                 circle = segs[0]
@@ -50,11 +57,18 @@ module CloudCut
                 cy = round_val(Units.to_unit(circle.center[1], unit) + offset_y, unit)
                 r = round_val(Units.to_unit(circle.radius, unit), unit)
                 op_json["circles"] << { "cx" => cx, "cy" => cy, "r" => r }
+                island_circle_indices << op_json["circles"].length - 1 if is_island
               else
                 d = build_offset_path_d(segs, unit, offset_x, offset_y)
-                op_json["paths"] << d if d
+                if d
+                  op_json["paths"] << d
+                  island_path_indices << op_json["paths"].length - 1 if is_island
+                end
               end
             end
+
+            op_json["islandIndices"] = island_path_indices unless island_path_indices.empty?
+            op_json["islandCircleIndices"] = island_circle_indices unless island_circle_indices.empty?
 
             comp_json["operations"] << op_json
           end
