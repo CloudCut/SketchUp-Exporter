@@ -14,7 +14,7 @@ module CloudCut
         layouts = compute_layout(components, unit, margin, spacing)
 
         result = {
-          "exporterVersion" => "v6-island-flags",
+          "exporterVersion" => "v7-arc-fixes",
           "units"      => Units.unit_label(unit),
           "width"      => round_val(layouts[:total_width], unit),
           "height"     => round_val(layouts[:total_height], unit),

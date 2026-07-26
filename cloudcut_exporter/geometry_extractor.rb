@@ -222,15 +222,27 @@ module CloudCut
           operations << ExportOperation.new(:profile, thickness, profile_contours)
         end
 
-        # Pockets: all loops of intermediate-level faces
+        # Pockets: loops of intermediate-level faces. An inner loop is kept
+        # only when it borders material rising above the pocket floor (a true
+        # island). Inner loops around deeper features — through-holes or
+        # deeper pockets cut into the floor — are dropped: those regions get
+        # machined by their own operations, and exporting them here would
+        # tell CloudCut to treat them as part of this pocket.
+        up_vector = Geom::Vector3d.new(
+          -world_normal.x, -world_normal.y, -world_normal.z
+        )
         pocket_groups.each do |depth, faces|
           pocket_contours = []
           faces.each do |face_dict|
             face_obj = face_dict[:face]
             face_obj.loops.each do |loop|
+              is_outer = loop.outer?
+              unless is_outer
+                next unless island_loop?(loop, face_obj, up_vector, world_transform)
+              end
               contour = extract_loop(loop, origin, u_axis, v_axis, world_transform)
               next unless contour
-              contour.is_outer = loop.outer?
+              contour.is_outer = is_outer
               pocket_contours << contour
             end
           end
@@ -306,6 +318,21 @@ module CloudCut
         edges = loop.edges
         return nil if edges.empty?
 
+        # loop.edges can start anywhere in the ring, including mid-arc. If it
+        # does, one arc run gets split across the array seam and exports as
+        # two arcs — and the seam fragment can be a single edge, whose sweep
+        # direction is then numerically ambiguous. Rotate the array so it
+        # starts at a run boundary. (A loop that is entirely one curve — a
+        # full circle — walks k to 0 and is left untouched.)
+        if edges.length > 1
+          first_curve = edges.first.curve
+          if first_curve.is_a?(Sketchup::ArcCurve) && edges.last.curve == first_curve
+            k = edges.length - 1
+            k -= 1 while k > 0 && edges[k - 1].curve == first_curve
+            edges = edges[k..-1] + edges[0...k] if k > 0
+          end
+        end
+
         segments = []
         i = 0
 
@@ -322,57 +349,82 @@ module CloudCut
               j += 1
             end
 
-            # Full circle?
-            if (curve.end_angle - curve.start_angle - 2 * Math::PI).abs < 0.01
-              center_world = world_transform * curve.center
-              center_2d = project_point(center_world, origin, u_axis, v_axis)
-              # Radius = 2D distance from projected center to any point on the circle.
-              sample_world = world_transform * arc_edges.first.start.position
-              sample_2d = project_point(sample_world, origin, u_axis, v_axis)
-              radius_2d = Math.sqrt(
-                (sample_2d[0] - center_2d[0])**2 + (sample_2d[1] - center_2d[1])**2
-              )
+            # Endpoints of the run this loop actually holds. Decided purely
+            # from geometry below — the curve's stored angles are never
+            # consulted, because a circle split by other geometry can leave a
+            # partial run whose curve still reports 2π, and hand-edited or
+            # imported circles can report angles that don't span 2π at all.
+            first_edge = arc_edges.first
+            last_edge = arc_edges.last
+            reversed = first_edge.reversed_in?(loop.face)
+
+            if reversed
+              start_pt = first_edge.end.position
+              end_pt = last_edge.start.position
+            else
+              start_pt = first_edge.start.position
+              end_pt = last_edge.end.position
+            end
+
+            start_world = world_transform * start_pt
+            end_world = world_transform * end_pt
+            center_world = world_transform * curve.center
+
+            start_2d = project_point(start_world, origin, u_axis, v_axis)
+            end_2d = project_point(end_world, origin, u_axis, v_axis)
+            center_2d = project_point(center_world, origin, u_axis, v_axis)
+
+            # Radius = 2D distance from projected center to projected start.
+            radius_2d = Math.sqrt(
+              (start_2d[0] - center_2d[0])**2 + (start_2d[1] - center_2d[1])**2
+            )
+
+            chord = Math.sqrt(
+              (end_2d[0] - start_2d[0])**2 + (end_2d[1] - start_2d[1])**2
+            )
+
+            if chord < [1e-4, radius_2d * 0.005].max
+              # The run closes on itself (or falls short by well under any
+              # machinable amount): a full circle. Emitting it as an ArcSeg
+              # would produce a degenerate zero-chord arc that renders as
+              # nothing downstream.
               segments << CircleSeg.new(center_2d, radius_2d)
             else
-              # Partial arc
-              first_edge = arc_edges.first
-              last_edge = arc_edges.last
-              reversed = first_edge.reversed_in?(loop.face)
-
-              if reversed
-                start_pt = first_edge.end.position
-                end_pt = last_edge.start.position
+              # Partial arc.
+              # Sample a midpoint on the actual arc to determine sweep
+              # direction. Sampled in world space so a mirrored instance
+              # correctly flips the computed sweep flag.
+              if arc_edges.length == 1
+                # A lone edge's chord midpoint lies ON the chord, so it can't
+                # tell the two sides apart — the flags would be decided by
+                # floating-point noise. One edge spans a single segment of
+                # the polygonized curve, always a minor arc bulging away
+                # from the center, so build the on-arc midpoint from the
+                # projected center instead.
+                fx = (start_2d[0] + end_2d[0]) / 2.0 - center_2d[0]
+                fy = (start_2d[1] + end_2d[1]) / 2.0 - center_2d[1]
+                flen = Math.sqrt(fx * fx + fy * fy)
+                if flen > 1e-9
+                  mid_2d = [center_2d[0] + fx / flen * radius_2d,
+                            center_2d[1] + fy / flen * radius_2d]
+                else
+                  # Chord passes through the center — a one-edge semicircle.
+                  # Both sides are congruent; pick the chord's perpendicular.
+                  clen = chord > 1e-12 ? chord : 1.0
+                  mid_2d = [center_2d[0] - (end_2d[1] - start_2d[1]) / clen * radius_2d,
+                            center_2d[1] + (end_2d[0] - start_2d[0]) / clen * radius_2d]
+                end
               else
-                start_pt = first_edge.start.position
-                end_pt = last_edge.end.position
+                mid_edge = arc_edges[arc_edges.length / 2]
+                mid_pt_3d = Geom::Point3d.linear_combination(
+                  0.5, mid_edge.start.position, 0.5, mid_edge.end.position
+                )
+                mid_world = world_transform * mid_pt_3d
+                mid_2d = project_point(mid_world, origin, u_axis, v_axis)
               end
 
-              start_world = world_transform * start_pt
-              end_world = world_transform * end_pt
-              center_world = world_transform * curve.center
-
-              start_2d = project_point(start_world, origin, u_axis, v_axis)
-              end_2d = project_point(end_world, origin, u_axis, v_axis)
-              center_2d = project_point(center_world, origin, u_axis, v_axis)
-
-              # Radius = 2D distance from projected center to projected start.
-              radius_2d = Math.sqrt(
-                (start_2d[0] - center_2d[0])**2 + (start_2d[1] - center_2d[1])**2
-              )
-
-              # Sample a midpoint on the actual arc to determine sweep direction.
-              # Sampled in world space so a mirrored instance correctly flips
-              # the computed sweep flag.
-              mid_edge = arc_edges[arc_edges.length / 2]
-              mid_pt_3d = Geom::Point3d.linear_combination(
-                0.5, mid_edge.start.position, 0.5, mid_edge.end.position
-              )
-              mid_world = world_transform * mid_pt_3d
-              mid_2d = project_point(mid_world, origin, u_axis, v_axis)
-
-              subtended_angle = (curve.end_angle - curve.start_angle).abs
               clockwise, large_arc = compute_arc_flags(
-                start_2d, end_2d, mid_2d, subtended_angle
+                start_2d, end_2d, mid_2d, center_2d
               )
 
               segments << ArcSeg.new(start_2d, end_2d, center_2d, radius_2d, clockwise, large_arc)
@@ -401,29 +453,61 @@ module CloudCut
       end
 
       # Compute SVG arc sweep and large-arc flags using a 2D midpoint sample.
-      # mid_2d is an actual point on the arc, projected to 2D.
-      # subtended_angle is the arc's angle from ArcCurve (always positive).
-      def self.compute_arc_flags(start_2d, end_2d, mid_2d, subtended_angle)
+      # mid_2d is an actual point on the arc, projected to 2D; center_2d is
+      # the projected arc center. Both flags are derived purely from the
+      # projected geometry, never from ArcCurve angles — a curve's stored
+      # angles can describe more of the circle than this loop actually uses.
+      def self.compute_arc_flags(start_2d, end_2d, mid_2d, center_2d)
         dx_se = end_2d[0] - start_2d[0]
         dy_se = end_2d[1] - start_2d[1]
         dx_sm = mid_2d[0] - start_2d[0]
         dy_sm = mid_2d[1] - start_2d[1]
 
+        # Orientation of start -> mid -> end. Three ordered points on a circle
+        # give the travel direction regardless of how much of the circle the
+        # arc spans, so this test must NOT be inverted for large arcs.
         cross = dx_se * dy_sm - dy_se * dx_sm
+        clockwise = cross < 0
 
-        # For near-semicircular arcs (≈180°), the large-arc flag is ambiguous
-        # since both possible arcs are the same size. Floating point can push
-        # the angle slightly past π, flipping both flags and producing the
-        # wrong arc. Force large_arc=false so only sweep determines direction.
-        if (subtended_angle - Math::PI).abs < 0.01
-          large_arc = false
-          clockwise = cross < 0
-        else
-          large_arc = subtended_angle > Math::PI
-          clockwise = large_arc ? (cross > 0) : (cross < 0)
-        end
+        # Large arc iff the center lies on the same side of the chord as the
+        # sampled midpoint (the major arc wraps around the center's side).
+        # For semicircles the center sits on the chord; the two candidate
+        # arcs are mirror images and either flag draws the right one, so
+        # treat near-zero as false.
+        dx_sc = center_2d[0] - start_2d[0]
+        dy_sc = center_2d[1] - start_2d[1]
+        cross_c = dx_se * dy_sc - dy_se * dx_sc
+
+        chord = Math.sqrt(dx_se * dx_se + dy_se * dy_se)
+        center_dist = chord > 1e-12 ? cross_c.abs / chord : 0.0
+        large_arc = center_dist > 1e-6 && (cross > 0) == (cross_c > 0)
 
         [clockwise, large_arc]
+      end
+
+      # Does this inner loop of a pocket floor enclose an island (material
+      # rising above the floor) rather than a deeper feature (material cut
+      # away below it)? Decided by walking the side walls attached to the
+      # loop's edges: any wall vertex above the floor level means an island.
+      # up_vector must point from the pocket floor toward the machining top,
+      # in world space; comparisons run on world-transformed positions.
+      def self.island_loop?(loop, pocket_face, up_vector, world_transform)
+        level = nil
+        loop.edges.each do |edge|
+          if level.nil?
+            p = world_transform * edge.start.position
+            level = p.x * up_vector.x + p.y * up_vector.y + p.z * up_vector.z
+          end
+          edge.faces.each do |wall|
+            next if wall == pocket_face
+            wall.vertices.each do |vertex|
+              wp = world_transform * vertex.position
+              h = wp.x * up_vector.x + wp.y * up_vector.y + wp.z * up_vector.z
+              return true if h > level + 0.0001
+            end
+          end
+        end
+        false
       end
 
       def self.circle_loop?(contour)
