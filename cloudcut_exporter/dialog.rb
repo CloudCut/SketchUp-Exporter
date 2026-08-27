@@ -80,12 +80,29 @@ module CloudCut
 
         material_name = entity.material ? entity.material.display_name : "(none)"
 
+        # Extract contours now so the dialog can show each part's footprint and
+        # the same operations get reused at export time (no double extraction).
+        operations = classified ? GeometryExtractor.extract_contours(classified, transform) : []
+
+        width_mm = 0.0
+        height_mm = 0.0
+        unless operations.empty?
+          bbox = JsonBuilder.compute_component_bbox(
+            ExportComponent.new(name, nil, operations, nil), "mm"
+          )
+          width_mm = bbox[:width]
+          height_mm = bbox[:height]
+        end
+
         parts_info << {
           name: name,
           guid: export_guid(entity, s[:ancestor_pids]),
           thickness_in: thickness_in,
           thickness_mm: thickness_mm,
-          material: material_name
+          material: material_name,
+          operations: operations,
+          width_mm: width_mm,
+          height_mm: height_mm
         }
       end
 
@@ -101,7 +118,7 @@ module CloudCut
 
       # Build parts JSON for the dialog
       parts_json = parts_info.map { |p|
-        "{\"name\":#{json_str(p[:name])},\"thickness\":#{p[:canonical_thickness_mm].round(2)},\"material\":#{json_str(p[:material])}}"
+        "{\"name\":#{json_str(p[:name])},\"thickness\":#{p[:canonical_thickness_mm].round(2)},\"material\":#{json_str(p[:material])},\"width\":#{p[:width_mm].round(2)},\"height\":#{p[:height_mm].round(2)}}"
       }.join(",")
 
       materials_json = materials.map { |m| json_str(m) }.join(",")
@@ -162,19 +179,12 @@ module CloudCut
         return
       end
 
-      # Extract geometry for each filtered part
+      # Reuse the operations already extracted when the dialog was built.
       export_components = []
       filtered_indices.each do |idx|
-        s = solids[idx]
-        entity = s[:entity]
-        transform = s[:transform]
         pi = parts_info[idx]
-
-        classified = GeometryExtractor.classify_faces(entity.definition.entities, transform)
-        next unless classified
-
-        operations = GeometryExtractor.extract_contours(classified, transform)
-        next if operations.empty?
+        operations = pi[:operations]
+        next if operations.nil? || operations.empty?
 
         export_components << ExportComponent.new(
           pi[:name],

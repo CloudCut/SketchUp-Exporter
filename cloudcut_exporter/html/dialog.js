@@ -14,6 +14,28 @@ function formatThickness(mm) {
   return mm + " mm";
 }
 
+// Part footprint (width x height) in the current display unit.
+function formatDims(w, h) {
+  if (displayUnit === "in") {
+    return mmToIn(w).toFixed(3) + '" &times; ' + mmToIn(h).toFixed(3) + '"';
+  }
+  return w + " &times; " + h + " mm";
+}
+
+// Build the detail line shown under each part name: footprint, thickness,
+// and material (each present only when it applies).
+function partDetailHtml(p) {
+  var s = "";
+  if (p.width > 0) {
+    s += formatDims(p.width, p.height) + " &mdash; ";
+  }
+  s += formatThickness(p.thickness);
+  if (p.material !== "(none)") {
+    s += " &mdash; " + escapeHtml(p.material);
+  }
+  return s;
+}
+
 function initDialog(parts, materials, thicknesses, defaultUnit, version) {
   partsData = parts;
   materialsData = materials;
@@ -40,9 +62,7 @@ function initDialog(parts, materials, thicknesses, defaultUnit, version) {
     var row = document.createElement("div");
     row.className = "part-row";
     row.innerHTML = '<span class="part-name">' + escapeHtml(p.name) + '</span>' +
-      '<span class="part-detail">' + formatThickness(p.thickness) +
-      (p.material !== "(none)" ? ' — ' + escapeHtml(p.material) : '') +
-      '</span>';
+      '<span class="part-detail">' + partDetailHtml(p) + '</span>';
     listEl.appendChild(row);
   }
 
@@ -78,9 +98,7 @@ function refreshDisplay() {
     var row = document.createElement("div");
     row.className = "part-row";
     row.innerHTML = '<span class="part-name">' + escapeHtml(p.name) + '</span>' +
-      '<span class="part-detail">' + formatThickness(p.thickness) +
-      (p.material !== "(none)" ? ' — ' + escapeHtml(p.material) : '') +
-      '</span>';
+      '<span class="part-detail">' + partDetailHtml(p) + '</span>';
     listEl.appendChild(row);
   }
 
