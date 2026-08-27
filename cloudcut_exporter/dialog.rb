@@ -132,7 +132,7 @@ module CloudCut
         dialog_title: "CloudCut v#{EXTENSION.version}",
         preferences_key: "CloudCut_Exporter",
         width: 500,
-        height: 600,
+        height: 700,
         resizable: true
       )
 

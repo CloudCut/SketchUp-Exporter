@@ -22,18 +22,82 @@ function formatDims(w, h) {
   return w + " &times; " + h + " mm";
 }
 
-// Build the detail line shown under each part name: footprint, thickness,
-// and material (each present only when it applies).
+function pad2(n) {
+  return ("0" + n).slice(-2);
+}
+
+// Detail line under each part name: footprint (when known) then thickness.
 function partDetailHtml(p) {
   var s = "";
   if (p.width > 0) {
-    s += formatDims(p.width, p.height) + " &mdash; ";
+    s += '<span class="dim">' + formatDims(p.width, p.height) + '</span>' +
+         '<span class="sep">&middot;</span>';
   }
   s += formatThickness(p.thickness);
-  if (p.material !== "(none)") {
-    s += " &mdash; " + escapeHtml(p.material);
-  }
   return s;
+}
+
+function renderParts() {
+  var listEl = document.getElementById("partsList");
+  listEl.innerHTML = "";
+  for (var i = 0; i < partsData.length; i++) {
+    var p = partsData[i];
+    var row = document.createElement("div");
+    row.className = "part-row";
+    row.innerHTML =
+      '<div class="part-idx">' + pad2(i + 1) + '</div>' +
+      '<div class="part-main">' +
+        '<div class="part-name">' + escapeHtml(p.name) + '</div>' +
+        '<div class="part-detail">' + partDetailHtml(p) + '</div>' +
+      '</div>';
+    listEl.appendChild(row);
+  }
+  var countEl = document.getElementById("partsCount");
+  if (countEl) {
+    countEl.textContent = partsData.length + (partsData.length === 1 ? " solid" : " solids");
+  }
+}
+
+// Build one filter chip. filterName is the input name getChecked() reads.
+function chipHtml(filterName, value, labelText, checked) {
+  return '<label class="chip">' +
+    '<input type="checkbox" name="' + filterName + '" value="' + escapeHtml(String(value)) + '"' +
+    (checked ? ' checked' : '') + '>' +
+    '<span>' + escapeHtml(labelText) + '</span>' +
+  '</label>';
+}
+
+// Leading "All" chip that bulk-toggles every chip in the group.
+function allChipHtml(group, checked) {
+  return '<label class="chip chip-all">' +
+    '<input type="checkbox"' + (checked ? ' checked' : '') +
+    ' onchange="toggleAll(\'' + group + '\', this.checked)">' +
+    '<span>All</span>' +
+  '</label>';
+}
+
+function renderMaterials() {
+  var el = document.getElementById("materialFilters");
+  el.innerHTML = "";
+  var html = allChipHtml("materials", true);
+  for (var j = 0; j < materialsData.length; j++) {
+    html += chipHtml("material", materialsData[j], materialsData[j], true);
+  }
+  el.innerHTML = html;
+}
+
+function renderThicknesses() {
+  var el = document.getElementById("thicknessFilters");
+  // Preserve checked state across unit toggles (labels change, values don't).
+  var checked = getChecked("thickness");
+  var hasState = checked.length > 0 || el.querySelector('input[name="thickness"]') !== null;
+  var html = allChipHtml("thicknesses", true);
+  for (var k = 0; k < thicknessesData.length; k++) {
+    var val = thicknessesData[k];
+    var isChecked = !hasState || checked.indexOf(String(val)) !== -1;
+    html += chipHtml("thickness", val, formatThickness(val), isChecked);
+  }
+  el.innerHTML = html;
 }
 
 function initDialog(parts, materials, thicknesses, defaultUnit, version) {
@@ -42,78 +106,27 @@ function initDialog(parts, materials, thicknesses, defaultUnit, version) {
   thicknessesData = thicknesses;
   displayUnit = defaultUnit || "mm";
 
-  // Set version in header
   if (version) {
-    document.getElementById("app-title").textContent = "CloudCut v" + version;
+    document.getElementById("app-version").textContent = "v" + version;
   }
 
-  // Set default unit
   if (defaultUnit === "in") {
     document.getElementById("unitIn").checked = true;
   } else {
     document.getElementById("unitMm").checked = true;
   }
 
-  // Populate parts list
-  var listEl = document.getElementById("partsList");
-  listEl.innerHTML = "";
-  for (var i = 0; i < parts.length; i++) {
-    var p = parts[i];
-    var row = document.createElement("div");
-    row.className = "part-row";
-    row.innerHTML = '<span class="part-name">' + escapeHtml(p.name) + '</span>' +
-      '<span class="part-detail">' + partDetailHtml(p) + '</span>';
-    listEl.appendChild(row);
-  }
-
-  // Populate material filters
-  var matEl = document.getElementById("materialFilters");
-  matEl.innerHTML = "";
-  for (var j = 0; j < materials.length; j++) {
-    var lbl = document.createElement("label");
-    lbl.innerHTML = '<input type="checkbox" name="material" value="' +
-      escapeHtml(materials[j]) + '" checked> ' + escapeHtml(materials[j]);
-    matEl.appendChild(lbl);
-  }
-
-  // Populate thickness filters
-  var thkEl = document.getElementById("thicknessFilters");
-  thkEl.innerHTML = "";
-  for (var k = 0; k < thicknesses.length; k++) {
-    var lbl2 = document.createElement("label");
-    lbl2.innerHTML = '<input type="checkbox" name="thickness" value="' +
-      thicknesses[k] + '" checked> ' + formatThickness(thicknesses[k]);
-    thkEl.appendChild(lbl2);
-  }
+  renderParts();
+  renderMaterials();
+  renderThicknesses();
 }
 
+// Units changed: re-render the unit-dependent views (part footprints and
+// thickness chip labels). Material chips don't depend on unit.
 function refreshDisplay() {
   displayUnit = document.querySelector('input[name="units"]:checked').value;
-
-  // Update parts list
-  var listEl = document.getElementById("partsList");
-  listEl.innerHTML = "";
-  for (var i = 0; i < partsData.length; i++) {
-    var p = partsData[i];
-    var row = document.createElement("div");
-    row.className = "part-row";
-    row.innerHTML = '<span class="part-name">' + escapeHtml(p.name) + '</span>' +
-      '<span class="part-detail">' + partDetailHtml(p) + '</span>';
-    listEl.appendChild(row);
-  }
-
-  // Update thickness filters (preserve checked state)
-  var checkedThicknesses = getChecked("thickness");
-  var thkEl = document.getElementById("thicknessFilters");
-  thkEl.innerHTML = "";
-  for (var k = 0; k < thicknessesData.length; k++) {
-    var val = thicknessesData[k];
-    var isChecked = checkedThicknesses.indexOf(String(val)) !== -1;
-    var lbl = document.createElement("label");
-    lbl.innerHTML = '<input type="checkbox" name="thickness" value="' +
-      val + '"' + (isChecked ? ' checked' : '') + '> ' + formatThickness(val);
-    thkEl.appendChild(lbl);
-  }
+  renderParts();
+  renderThicknesses();
 }
 
 function toggleAll(groupName, checked) {
@@ -134,7 +147,6 @@ function getChecked(name) {
 }
 
 function doExport() {
-  var format = document.querySelector('input[name="format"]:checked').value;
   var units = document.querySelector('input[name="units"]:checked').value;
   var materials = getChecked("material");
   var thicknesses = getChecked("thickness");
@@ -149,7 +161,7 @@ function doExport() {
   }
 
   var options = {
-    format: format,
+    format: "json",
     units: units,
     materials: materials,
     thicknesses: thicknesses

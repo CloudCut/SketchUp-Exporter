@@ -37,6 +37,9 @@ cp "$SCRIPT_DIR/cloudcut_exporter/html/export_dialog.html" "$TMPDIR/cloudcut_exp
 cp "$SCRIPT_DIR/cloudcut_exporter/html/style.css"           "$TMPDIR/cloudcut_exporter/html/"
 cp "$SCRIPT_DIR/cloudcut_exporter/html/dialog.js"            "$TMPDIR/cloudcut_exporter/html/"
 
+mkdir -p "$TMPDIR/cloudcut_exporter/html/fonts"
+cp "$SCRIPT_DIR/cloudcut_exporter/html/fonts/"*.woff2 "$TMPDIR/cloudcut_exporter/html/fonts/"
+
 cp "$SCRIPT_DIR/cloudcut_exporter/icons/icon_16.png" "$TMPDIR/cloudcut_exporter/icons/"
 cp "$SCRIPT_DIR/cloudcut_exporter/icons/icon_24.png" "$TMPDIR/cloudcut_exporter/icons/"
 

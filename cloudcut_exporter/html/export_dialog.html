@@ -6,40 +6,40 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h2 id="app-title">CloudCut</h2>
 
-  <div class="section">
-    <h3>Detected Parts</h3>
-    <div id="partsList" class="parts-list"></div>
+  <div class="hdr">
+    <div class="mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2h8v17.5L12 22l-4-2.5z"/><path d="M8.7 8.6h6.6"/><path d="M8.5 14q3.6-1.7 7.1-4"/><path d="M8.5 18.9q3.6-1.7 7.1-4.4"/></svg></div>
+    <div class="title" id="app-title">CloudCut</div>
+    <div class="ver" id="app-version">&nbsp;</div>
+  </div>
+  <div class="eyebrow"><span class="dot"></span>SketchUp Exporter</div>
+
+  <div class="card">
+    <div class="sec-eyebrow">Detected Parts <span class="count" id="partsCount"></span></div>
+    <div id="partsList" class="parts"></div>
   </div>
 
-  <div class="section">
-    <h3>Output Format</h3>
-    <label><input type="radio" name="format" value="svg"> SVG</label>
-    <label><input type="radio" name="format" value="json" checked> JSON</label>
+  <div class="card">
+    <div class="sec-eyebrow">Units</div>
+    <div class="seg">
+      <input type="radio" name="units" value="mm" id="unitMm" checked onchange="refreshDisplay()"><label for="unitMm">Millimeters</label>
+      <input type="radio" name="units" value="in" id="unitIn" onchange="refreshDisplay()"><label for="unitIn">Inches</label>
+    </div>
   </div>
 
-  <div class="section">
-    <h3>Output Units</h3>
-    <label><input type="radio" name="units" value="mm" id="unitMm" onchange="refreshDisplay()"> Millimeters</label>
-    <label><input type="radio" name="units" value="in" id="unitIn" onchange="refreshDisplay()"> Inches</label>
+  <div class="card">
+    <div class="sec-eyebrow">Material</div>
+    <div id="materialFilters" class="chips"></div>
   </div>
 
-  <div class="section">
-    <h3>Material Filter</h3>
-    <label class="toggle-all"><input type="checkbox" id="allMaterials" checked onchange="toggleAll('materials', this.checked)"> All</label>
-    <div id="materialFilters" class="filter-group"></div>
+  <div class="card">
+    <div class="sec-eyebrow">Thickness</div>
+    <div id="thicknessFilters" class="chips"></div>
   </div>
 
-  <div class="section">
-    <h3>Thickness Filter</h3>
-    <label class="toggle-all"><input type="checkbox" id="allThicknesses" checked onchange="toggleAll('thicknesses', this.checked)"> All</label>
-    <div id="thicknessFilters" class="filter-group"></div>
-  </div>
-
-  <div class="buttons">
-    <button id="exportBtn" onclick="doExport()">Export</button>
-    <button id="cancelBtn" onclick="doCancel()">Cancel</button>
+  <div class="btn-row">
+    <button class="btn btn-ghost" id="cancelBtn" onclick="doCancel()">Cancel</button>
+    <button class="btn btn-primary" id="exportBtn" onclick="doExport()">Export</button>
   </div>
 
   <script src="dialog.js"></script>
