@@ -1,0 +1,11 @@
+Fonts bundled with the CloudCut Exporter extension
+==================================================
+
+Each typeface below is licensed under the SIL Open Font License, Version 1.1.
+The full license text for each is included in this folder.
+
+  bricolage-grotesque.woff2  Bricolage Grotesque  — see OFL-Bricolage-Grotesque.txt
+  hanken-grotesk.woff2       Hanken Grotesk       — see OFL-Hanken-Grotesk.txt
+  jetbrains-mono.woff2       JetBrains Mono       — see OFL-JetBrains-Mono.txt
+
+The SIL OFL permits bundling and redistribution with this software.

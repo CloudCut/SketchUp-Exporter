@@ -38,7 +38,8 @@ cp "$SCRIPT_DIR/cloudcut_exporter/html/style.css"           "$TMPDIR/cloudcut_ex
 cp "$SCRIPT_DIR/cloudcut_exporter/html/dialog.js"            "$TMPDIR/cloudcut_exporter/html/"
 
 mkdir -p "$TMPDIR/cloudcut_exporter/html/fonts"
-cp "$SCRIPT_DIR/cloudcut_exporter/html/fonts/"*.woff2 "$TMPDIR/cloudcut_exporter/html/fonts/"
+# woff2 fonts plus their OFL license files and NOTICE
+cp "$SCRIPT_DIR/cloudcut_exporter/html/fonts/"* "$TMPDIR/cloudcut_exporter/html/fonts/"
 
 cp "$SCRIPT_DIR/cloudcut_exporter/icons/icon_16.png" "$TMPDIR/cloudcut_exporter/icons/"
 cp "$SCRIPT_DIR/cloudcut_exporter/icons/icon_24.png" "$TMPDIR/cloudcut_exporter/icons/"

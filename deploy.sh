@@ -36,7 +36,8 @@ for PLUGIN_DIR in "${TARGETS[@]}"; do
   cp "$SCRIPT_DIR/cloudcut_exporter/html/dialog.js"           "$PLUGIN_DIR/cloudcut_exporter/html/"
 
   mkdir -p "$PLUGIN_DIR/cloudcut_exporter/html/fonts"
-  cp "$SCRIPT_DIR/cloudcut_exporter/html/fonts/"*.woff2 "$PLUGIN_DIR/cloudcut_exporter/html/fonts/"
+  # woff2 fonts plus their OFL license files and NOTICE
+  cp "$SCRIPT_DIR/cloudcut_exporter/html/fonts/"* "$PLUGIN_DIR/cloudcut_exporter/html/fonts/"
 
   cp "$SCRIPT_DIR/cloudcut_exporter/icons/icon_16.png" "$PLUGIN_DIR/cloudcut_exporter/icons/"
   cp "$SCRIPT_DIR/cloudcut_exporter/icons/icon_24.png" "$PLUGIN_DIR/cloudcut_exporter/icons/"
