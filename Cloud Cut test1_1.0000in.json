@@ -1,0 +1,39 @@
+{
+  "exporterVersion": "v7-arc-fixes",
+  "units": "in",
+  "width": 22.0,
+  "height": 22.0,
+  "stockThickness": 1.0,
+  "components": [
+    {
+      "name": "Component#1",
+      "sourceGuid": "52803",
+      "operations": [
+        {
+          "type": "profile",
+          "cutDepth": 1.0,
+          "paths": [
+            "M1.0000,21.0000 L1.0000,1.0000 L21.0000,1.0000 L21.0000,21.0000 L1.0000,21.0000 Z"
+          ],
+          "circles": [
+
+          ]
+        },
+        {
+          "type": "pocket",
+          "cutDepth": 0.6097,
+          "paths": [
+            "M18.2283,5.7062 L4.6588,5.7062 L4.6588,18.2105 L18.2283,18.2105 L18.2283,5.7062 Z",
+            "M9.4576,10.0534 L13.8670,10.0534 L13.8670,14.2028 L9.4576,14.2028 L9.4576,10.0534 Z"
+          ],
+          "circles": [
+
+          ],
+          "islandIndices": [
+            1
+          ]
+        }
+      ]
+    }
+  ]
+}

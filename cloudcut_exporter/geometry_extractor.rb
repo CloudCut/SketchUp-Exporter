@@ -254,44 +254,59 @@ module CloudCut
         operations
       end
 
-      # Build a 2D projection frame orthogonal to a world-space normal.
+      # Build a 2D projection frame whose axes lie in the face's own plane.
+      #
+      # We pick a world reference direction so that axis-aligned faces get a
+      # stable, canonical 2D orientation (and consistent handedness for up/down
+      # and mirrored faces), then PROJECT that reference into the face plane
+      # rather than use it raw: u = ref - (ref . n) n. Because u and v = n x u
+      # are unit-length and orthogonal to the normal, projecting any in-plane
+      # geometry onto them preserves true lengths no matter how the face is
+      # tilted in 3D.
+      #
+      # When the normal sits exactly on a world axis the projection is a no-op,
+      # so u/v collapse to the same world axes this code used historically and
+      # flat / square-to-axis parts export bit-for-bit identically. Only tilted
+      # faces change -- from foreshortened onto a world plane (their "shadow")
+      # to their true in-plane size. See the earlier bug where a part tilted 75
+      # deg exported at 300 * sin(75) instead of 300.
       def self.build_axes_from_normal(normal)
         if normal.z.abs > 0.9
-          # For horizontal faces (normal along Z)
-          u = Geom::Vector3d.new(1, 0, 0)
-          # Looking down (normal.z > 0): standard orientation
-          # Looking up (normal.z < 0): flip Y to maintain correct handedness
-          v = normal.z > 0 ? Geom::Vector3d.new(0, 1, 0) : Geom::Vector3d.new(0, -1, 0)
+          # Near-horizontal face (normal ~ Z): anchor U to world +X.
+          ref = Geom::Vector3d.new(1, 0, 0)
         elsif normal.x.abs > 0.9
-          # For faces perpendicular to X axis
-          if normal.x < 0
-            # Looking along -X: Y goes down, Z goes right
-            u = Geom::Vector3d.new(0, -1, 0)
-            v = Geom::Vector3d.new(0, 0, 1)  # Changed from -1 to 1
-          else
-            # Looking along +X: Y goes up, Z goes right
-            u = Geom::Vector3d.new(0, 1, 0)
-            v = Geom::Vector3d.new(0, 0, 1)  # Changed from -1 to 1
-          end
+          # Face pointing along X: anchor U to world Y (sign keeps handedness).
+          ref = normal.x < 0 ? Geom::Vector3d.new(0, -1, 0) : Geom::Vector3d.new(0, 1, 0)
         elsif normal.y.abs > 0.9
-          # For faces perpendicular to Y axis
-          if normal.y < 0
-            # Looking along -Y: X goes right, Z goes down
-            u = Geom::Vector3d.new(1, 0, 0)
-            v = Geom::Vector3d.new(0, 0, 1)  # Changed from -1 to 1
-          else
-            # Looking along +Y: X goes left, Z goes down
-            u = Geom::Vector3d.new(-1, 0, 0)
-            v = Geom::Vector3d.new(0, 0, 1)  # Changed from -1 to 1
-          end
+          # Face pointing along Y: anchor U to world X (sign keeps handedness).
+          ref = normal.y < 0 ? Geom::Vector3d.new(1, 0, 0) : Geom::Vector3d.new(-1, 0, 0)
         else
-          # For arbitrary orientations, use cross product
+          # Arbitrary orientation: no world axis is close, so the cross-product
+          # frame is already fully in-plane and dimensionally correct. Keep it
+          # unchanged so parts in this range (~26-64 deg tilt) export exactly as
+          # they did before.
           ref = Geom::Vector3d.new(0, 0, 1)
           u = ref.cross(normal)
           u.normalize!
           v = normal.cross(u)
           v.normalize!
+          return [u, v]
         end
+
+        # Axis-aligned branch: project the anchor into the face plane so the
+        # axes stay in-plane for tilted faces, then complete a right-handed
+        # in-plane frame with v = n x u. When the normal sits exactly on the
+        # axis the projection is a no-op and u/v match the historical world
+        # axes, so flat / square parts are unchanged.
+        dot = ref.x * normal.x + ref.y * normal.y + ref.z * normal.z
+        u = Geom::Vector3d.new(
+          ref.x - dot * normal.x,
+          ref.y - dot * normal.y,
+          ref.z - dot * normal.z
+        )
+        u.normalize!
+        v = normal.cross(u)
+        v.normalize!
 
         [u, v]
       end
