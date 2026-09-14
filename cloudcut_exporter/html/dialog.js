@@ -146,28 +146,61 @@ function getChecked(name) {
   return vals;
 }
 
-function doExport() {
+// Read the dialog's choices; null (after telling the user why) when incomplete.
+function collectOptions() {
   var units = document.querySelector('input[name="units"]:checked').value;
   var materials = getChecked("material");
   var thicknesses = getChecked("thickness");
 
   if (materials.length === 0) {
     alert("Please select at least one material.");
-    return;
+    return null;
   }
   if (thicknesses.length === 0) {
     alert("Please select at least one thickness.");
-    return;
+    return null;
   }
 
-  var options = {
+  return {
     format: "json",
     units: units,
     materials: materials,
     thicknesses: thicknesses
   };
+}
 
-  sketchup.doExport(JSON.stringify(options));
+// Save JSON: one file per thickness via save dialogs.
+function doExport() {
+  var options = collectOptions();
+  if (options) sketchup.doExport(JSON.stringify(options));
+}
+
+// Send to CloudCut. Ruby either opens the shop link and closes the dialog, or
+// calls back onSendError / onSendDone so the user can retry or save instead.
+function doSend() {
+  var options = collectOptions();
+  if (!options) return;
+  setBusy(true, "Sending to CloudCut…", false);
+  sketchup.doSend(JSON.stringify(options));
+}
+
+function setBusy(busy, message, isError) {
+  var ids = ["cancelBtn", "exportBtn", "sendBtn"];
+  for (var i = 0; i < ids.length; i++) {
+    document.getElementById(ids[i]).disabled = busy;
+  }
+  var el = document.getElementById("sendStatus");
+  el.textContent = message || "";
+  el.style.display = message ? "block" : "none";
+  el.className = "send-status" + (isError ? " error" : "");
+}
+
+function onSendDone() {
+  setBusy(false, "", false);
+}
+
+function onSendError(message) {
+  setBusy(false, message + " You can still use Save JSON instead.", true);
 }
 
 function doCancel() {

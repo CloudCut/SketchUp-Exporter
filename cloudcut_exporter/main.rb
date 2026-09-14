@@ -11,6 +11,10 @@ module CloudCut
     ExportOperation = Struct.new(:op_type, :cut_depth, :contours)
     ExportComponent = Struct.new(:name, :guid, :operations, :bbox)
 
+    # CloudCut API that "Send to CloudCut" posts exports to. Set the
+    # CLOUDCUT_API_URL environment variable to test against a local workshop.
+    CLOUDCUT_API_URL = (ENV["CLOUDCUT_API_URL"] || "https://shop.cloudcut.cam").chomp("/")
+
     # Load support files
     dir = __dir__.force_encoding('UTF-8')
     Sketchup.require(File.join(dir, "utils"))

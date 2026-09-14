@@ -37,9 +37,12 @@
     <div id="thicknessFilters" class="chips"></div>
   </div>
 
+  <div id="sendStatus" class="send-status" style="display:none"></div>
+
   <div class="btn-row">
     <button class="btn btn-ghost" id="cancelBtn" onclick="doCancel()">Cancel</button>
-    <button class="btn btn-primary" id="exportBtn" onclick="doExport()">Export</button>
+    <button class="btn btn-ghost" id="exportBtn" onclick="doExport()">Save JSON</button>
+    <button class="btn btn-primary" id="sendBtn" onclick="doSend()">Send to CloudCut</button>
   </div>
 
   <script src="dialog.js"></script>

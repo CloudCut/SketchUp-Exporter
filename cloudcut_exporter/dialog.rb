@@ -150,6 +150,14 @@ module CloudCut
         end
       end
 
+      dialog.add_action_callback("doSend") do |_ctx, options_json|
+        begin
+          send_export(JSON.parse(options_json), parts_info, dialog)
+        rescue => e
+          dialog.execute_script("onSendError(#{json_str("Send failed: #{e.message.to_s.gsub(/\s+/, " ")}")});")
+        end
+      end
+
       dialog.add_action_callback("doCancel") do |_ctx|
         dialog.close
       end
@@ -161,69 +169,15 @@ module CloudCut
     end
 
     def self.perform_export(options, solids, parts_info)
-      format = options["format"] || "json"
-      unit = options["units"] || "mm"
-      selected_materials = options["materials"] || []
-      selected_thicknesses = (options["thicknesses"] || []).map { |t| t.to_f }
+      built = build_export_groups(options, parts_info)
+      return unless built
+      unit, format, thickness_groups = built
 
-      # Filter parts
-      filtered_indices = []
-      parts_info.each_with_index do |pi, idx|
-        next unless selected_materials.include?(pi[:material])
-        next unless selected_thicknesses.any? { |t| (t - pi[:canonical_thickness_mm].round(2)).abs < 0.01 }
-        filtered_indices << idx
-      end
-
-      if filtered_indices.empty?
-        UI.messagebox("No parts match the selected filters.")
-        return
-      end
-
-      # Reuse the operations already extracted when the dialog was built.
-      export_components = []
-      filtered_indices.each do |idx|
-        pi = parts_info[idx]
-        operations = pi[:operations]
-        next if operations.nil? || operations.empty?
-
-        export_components << ExportComponent.new(
-          pi[:name],
-          pi[:guid],
-          operations,
-          nil
-        )
-      end
-
-      if export_components.empty?
-        UI.messagebox("No exportable geometry found in the selected parts.")
-        return
-      end
-
-      # Group by canonical thickness (shared across a cluster, so no rounding
-      # needed — parts in the same cluster share the exact same value).
-      thickness_groups = {}
-      filtered_indices.each_with_index do |orig_idx, i|
-        next if i >= export_components.length
-        pi = parts_info[orig_idx]
-        thickness_key = pi[:canonical_thickness_mm]
-        (thickness_groups[thickness_key] ||= []) << export_components[i]
-      end
-
-      model = Sketchup.active_model
-      base_name = model.title
-      base_name = "export" if base_name.nil? || base_name.empty?
-
+      base_name = export_base_name
       ext = format == "svg" ? "svg" : "json"
 
       thickness_groups.each do |thickness_mm, components|
-        if unit == "in"
-          thickness_val = thickness_mm / 25.4
-          thickness_str = Units.format_coord(thickness_val, "in")
-          default_filename = "#{base_name}_#{thickness_str}in.#{ext}"
-        else
-          thickness_str = Units.format_coord(thickness_mm, "mm")
-          default_filename = "#{base_name}_#{thickness_str}mm.#{ext}"
-        end
+        default_filename = "#{thickness_file_stem(base_name, thickness_mm, unit)}.#{ext}"
 
         path = UI.savepanel("Save #{ext.upcase} File", "", default_filename)
         next unless path
@@ -247,6 +201,140 @@ module CloudCut
         MB_OKCANCEL
       )
       UI.openURL("https://app.cloudcut.cam") if choice == IDOK
+    end
+
+    # Send to CloudCut: POST every thickness group as one handoff, then open the
+    # shop link it returns, where the signed-in user claims the jobs. The dialog
+    # stays open (buttons disabled) until the request finishes, so a failure
+    # leaves Save JSON right there as the fallback.
+    def self.send_export(options, parts_info, dialog)
+      built = build_export_groups(options, parts_info)
+      unless built
+        dialog.execute_script("onSendDone();")
+        return
+      end
+      unit, _format, thickness_groups = built
+
+      base_name = export_base_name
+      files = thickness_groups.map do |thickness_mm, components|
+        {
+          "name" => thickness_file_stem(base_name, thickness_mm, unit),
+          "content" => JSON.parse(JsonBuilder.build_json(components, unit, thickness_mm))
+        }
+      end
+      payload = {
+        "source" => { "app" => "sketchup", "version" => EXTENSION.version },
+        "files" => files
+      }
+
+      request = Sketchup::Http::Request.new("#{CLOUDCUT_API_URL}/v1/handoffs", Sketchup::Http::POST)
+      request.headers = { "Content-Type" => "application/json",
+                          "User-Agent" => "CloudCut-Exporter/#{EXTENSION.version}" }
+      request.body = JSON.generate(payload)
+
+      # Hold a reference: an unreferenced request can be garbage-collected
+      # before its callback fires.
+      @send_request = request
+      request.start do |_req, response|
+        @send_request = nil
+        url = handoff_url(response)
+        if url
+          UI.openURL(url)
+          @export_dialog.close if @export_dialog
+        else
+          dialog.execute_script("onSendError(#{json_str(send_error_message(response))});")
+        end
+      end
+    rescue => e
+      @send_request = nil
+      dialog.execute_script("onSendError(#{json_str("Couldn't reach CloudCut (#{e.message.to_s.gsub(/\s+/, " ")}).")});")
+    end
+
+    # Apply the dialog's filters and group the chosen parts by thickness.
+    # Returns [unit, format, { thickness_mm => [ExportComponent] }], or nil
+    # after telling the user why there's nothing to export.
+    def self.build_export_groups(options, parts_info)
+      format = options["format"] || "json"
+      unit = options["units"] || "mm"
+      selected_materials = options["materials"] || []
+      selected_thicknesses = (options["thicknesses"] || []).map { |t| t.to_f }
+
+      # Filter parts
+      filtered_indices = []
+      parts_info.each_with_index do |pi, idx|
+        next unless selected_materials.include?(pi[:material])
+        next unless selected_thicknesses.any? { |t| (t - pi[:canonical_thickness_mm].round(2)).abs < 0.01 }
+        filtered_indices << idx
+      end
+
+      if filtered_indices.empty?
+        UI.messagebox("No parts match the selected filters.")
+        return nil
+      end
+
+      # Reuse the operations already extracted when the dialog was built.
+      export_components = []
+      filtered_indices.each do |idx|
+        pi = parts_info[idx]
+        operations = pi[:operations]
+        next if operations.nil? || operations.empty?
+
+        export_components << ExportComponent.new(
+          pi[:name],
+          pi[:guid],
+          operations,
+          nil
+        )
+      end
+
+      if export_components.empty?
+        UI.messagebox("No exportable geometry found in the selected parts.")
+        return nil
+      end
+
+      # Group by canonical thickness (shared across a cluster, so no rounding
+      # needed — parts in the same cluster share the exact same value).
+      thickness_groups = {}
+      filtered_indices.each_with_index do |orig_idx, i|
+        next if i >= export_components.length
+        pi = parts_info[orig_idx]
+        thickness_key = pi[:canonical_thickness_mm]
+        (thickness_groups[thickness_key] ||= []) << export_components[i]
+      end
+
+      [unit, format, thickness_groups]
+    end
+
+    def self.export_base_name
+      title = Sketchup.active_model.title
+      title.nil? || title.empty? ? "export" : title
+    end
+
+    # "Bracket_19.05mm" / "Bracket_0.75in": the saved file's name without its
+    # extension, and the job name when sent to CloudCut.
+    def self.thickness_file_stem(base_name, thickness_mm, unit)
+      if unit == "in"
+        "#{base_name}_#{Units.format_coord(thickness_mm / 25.4, "in")}in"
+      else
+        "#{base_name}_#{Units.format_coord(thickness_mm, "mm")}mm"
+      end
+    end
+
+    # The shop link from a successful handoff response, else nil.
+    def self.handoff_url(response)
+      return nil unless response.status_code == 201
+      url = JSON.parse(response.body)["url"]
+      url.is_a?(String) && !url.empty? ? url : nil
+    rescue StandardError
+      nil
+    end
+
+    def self.send_error_message(response)
+      case response.status_code
+      when 0 then "Couldn't reach CloudCut. Check your internet connection."
+      when 429 then "Too many exports were sent from this network recently. Wait a few minutes and try again."
+      else "CloudCut couldn't accept the export (HTTP #{response.status_code})."
+      end
     end
 
     private

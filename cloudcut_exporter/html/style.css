@@ -145,6 +145,14 @@ body{
 .btn-primary:active{transform:translateY(0)}
 .btn-ghost{color:var(--text);background:var(--surface);border-color:var(--border-br)}
 .btn-ghost:hover{background:var(--surface-2);border-color:var(--faint)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* Send to CloudCut progress / failure line above the buttons */
+.send-status{
+  margin-top:15px;padding:9px 12px;border-radius:var(--r-md);font-size:12.5px;
+  color:var(--dim);background:var(--surface);border:1px solid var(--border);
+}
+.send-status.error{color:#ff7d7d;background:rgba(255,92,92,.08);border-color:rgba(255,92,92,.35)}
 
 /* scrollbar */
 .parts::-webkit-scrollbar{width:8px}
