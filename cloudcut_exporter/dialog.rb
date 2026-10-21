@@ -128,11 +128,14 @@ module CloudCut
 
       @export_dialog.close if @export_dialog
 
+      # SketchUp restores the last size saved under preferences_key, so the key
+      # changes whenever the default size does; otherwise existing users keep
+      # the old size. 860 fits the dialog with the send-status line showing.
       dialog = UI::HtmlDialog.new(
         dialog_title: "CloudCut v#{EXTENSION.version}",
-        preferences_key: "CloudCut_Exporter",
+        preferences_key: "CloudCut_Exporter_v2",
         width: 500,
-        height: 700,
+        height: 860,
         resizable: true
       )
 
