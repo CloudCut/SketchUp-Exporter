@@ -137,7 +137,7 @@ module CloudCut
       )
 
       dialog.add_action_callback("initData") do |_ctx|
-        js = "initDialog([#{parts_json}], [#{materials_json}], [#{thicknesses_json}], #{json_str(default_unit)}, #{json_str(EXTENSION.version)});"
+        js = "initDialog([#{parts_json}], [#{materials_json}], [#{thicknesses_json}], #{json_str(default_unit)}, #{json_str(EXTENSION.version)}, #{json_str(export_base_name)});"
         dialog.execute_script(js)
       end
 
@@ -173,7 +173,7 @@ module CloudCut
       return unless built
       unit, format, thickness_groups = built
 
-      base_name = export_base_name
+      base_name = export_base_name(options["name"])
       ext = format == "svg" ? "svg" : "json"
 
       thickness_groups.each do |thickness_mm, components|
@@ -215,7 +215,7 @@ module CloudCut
       end
       unit, _format, thickness_groups = built
 
-      base_name = export_base_name
+      base_name = export_base_name(options["name"])
       files = thickness_groups.map do |thickness_mm, components|
         {
           "name" => thickness_file_stem(base_name, thickness_mm, unit),
@@ -305,7 +305,12 @@ module CloudCut
       [unit, format, thickness_groups]
     end
 
-    def self.export_base_name
+    # The name the user typed in the dialog, made safe to use as a filename;
+    # falls back to the model title (the dialog's pre-filled value) if blank.
+    def self.export_base_name(requested = nil)
+      name = requested.to_s.gsub(/[\x00-\x1f\\\/:*?"<>|]/, "_").strip
+      return name unless name.empty?
+
       title = Sketchup.active_model.title
       title.nil? || title.empty? ? "export" : title
     end

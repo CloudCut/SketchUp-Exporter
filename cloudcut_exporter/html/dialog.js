@@ -100,7 +100,7 @@ function renderThicknesses() {
   el.innerHTML = html;
 }
 
-function initDialog(parts, materials, thicknesses, defaultUnit, version) {
+function initDialog(parts, materials, thicknesses, defaultUnit, version, defaultName) {
   partsData = parts;
   materialsData = materials;
   thicknessesData = thicknesses;
@@ -109,6 +109,10 @@ function initDialog(parts, materials, thicknesses, defaultUnit, version) {
   if (version) {
     document.getElementById("app-version").textContent = "v" + version;
   }
+
+  var nameEl = document.getElementById("jobName");
+  nameEl.value = defaultName || "";
+  nameEl.placeholder = defaultName || "";
 
   if (defaultUnit === "in") {
     document.getElementById("unitIn").checked = true;
@@ -163,6 +167,7 @@ function collectOptions() {
 
   return {
     format: "json",
+    name: document.getElementById("jobName").value,
     units: units,
     materials: materials,
     thicknesses: thicknesses
@@ -185,7 +190,7 @@ function doSend() {
 }
 
 function setBusy(busy, message, isError) {
-  var ids = ["cancelBtn", "exportBtn", "sendBtn"];
+  var ids = ["jobName", "cancelBtn", "exportBtn", "sendBtn"];
   for (var i = 0; i < ids.length; i++) {
     document.getElementById(ids[i]).disabled = busy;
   }
